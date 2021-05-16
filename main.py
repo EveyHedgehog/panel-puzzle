@@ -565,7 +565,7 @@ class Character(object):
         self.image = self.idleFrames[0]
         self.rect = self.image.get_rect()
 
-    def drawHealth(self, surf):
+    def drawBars(self, surf):
         healthRect = pygame.Rect(0, 0, self.image.get_width()/1.5, 10)
         healthRect.midbottom = self.rect.centerx, (self.rect.top - 5)
         spclRect = pygame.Rect(0, 0, self.image.get_width()/2, 5)
@@ -674,7 +674,7 @@ class Character(object):
                 self.currentAnim = self.animStates['win']
         self.rect.topleft = (x, y)
         self.screen.blit(self.image, self.rect)
-        self.drawHealth(screen)
+        self.drawBars(screen)
 
 gameBoard = GameBoard(1500, 'charA', 'enemA', 100, 100) # GameBoard(block generation speed, player character, enemy, player HP, enemy HP)
 gameBoard.setBoard()
