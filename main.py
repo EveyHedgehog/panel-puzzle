@@ -1,4 +1,4 @@
-import pygame, sys, math, random, time, copy, itertools, threading
+import pygame, sys, math, random, time, copy, itertools, threading, os
 
 # Thanks to nilaym on gitHub for their Bejewled code!
 # pygame General setup
@@ -12,8 +12,8 @@ screen = pygame.display.set_mode((screen_width,screen_height))
 pygame.display.set_caption('Puzzle')
 
 # Images
-gameBG = pygame.image.load('sprites\spr_bg.png').convert()
-cursor = pygame.image.load('sprites\spr_cursor.png').convert_alpha()
+gameBG = pygame.image.load(os.path.join('sprites', 'spr_bg.png')).convert()
+cursor = pygame.image.load(os.path.join('sprites', 'spr_cursor.png')).convert_alpha()
 
 # Game variables
 gridSize = 40
@@ -41,21 +41,8 @@ COLUMNS = 6
 # Make sure the board stays even
 assert (BOARDWIDTH * BOARDHEIGHT) % 2 == 0, 'Need even board!'
 # Have an image for the board. lol
-board = pygame.image.load('sprites\spr_window.png').convert()
+board = pygame.image.load(os.path.join('sprites', 'spr_window.png')).convert()
 boardPos = pygame.math.Vector2(194,35) # Remember to double this
-
-# class Timer:
-#     def __init__(self, timeout, callback):
-#         self._timeout = timeout
-#         self._callback = callback
-#         self._task = asyncio.ensure_future(self._job())
-#
-#     async def _job(self):
-#         await asyncio.sleep(self._timeout)
-#         await self._callback()
-#
-#     def cancel(self):
-#         self._task.cancel()
 
 class Cursor(object):
     def __init__(self):
@@ -150,17 +137,17 @@ class GameBoard:
         # Don't start with matches!
         # Horizontal check
         for row, column in itertools.product(range(self.rows), range(self.columns-2)):
-            if self.board[row][column].image is not EMPTY and self.board[row][column].image == self.board[row][column+1].image == self.board[row][column+2].image: #A match!
+            if self.board[row][column].index is not EMPTY and self.board[row][column].index == self.board[row][column+1].index == self.board[row][column+2].index: #A match!
                 # Change the image index of the first block
                 top, bottom, left, right = EMPTY, EMPTY, EMPTY, EMPTY
                 if row+1 < self.rows:
-                    bottom = self.board[row+1][column].image
+                    bottom = self.board[row+1][column].index
                 if row-1 > 0:
-                    top = self.board[row-1][column].image
+                    top = self.board[row-1][column].index
                 if column+1 < self.columns:
-                    right = self.board[row][column+1].image
+                    right = self.board[row][column+1].index
                 if column-1 > 0:
-                    left = self.board[row][column-1].image
+                    left = self.board[row][column-1].index
 
                 surroundingBlocks = [top, bottom, left, right]
 
@@ -173,20 +160,20 @@ class GameBoard:
                     if b in blockTypes:
                         blockTypes.remove(b)
 
-                self.board[row][column].image = random.choice(blockTypes) # Pick a new block
+                self.board[row][column].index = random.choice(blockTypes) # Pick a new block
 
         # Vertical check
         for row, column in itertools.product(range(self.rows-2), range(self.columns)):
-            if self.board[row][column].image is not EMPTY and self.board[row][column].image == self.board[row+1][column].image == self.board[row+2][column].image:
+            if self.board[row][column].index is not EMPTY and self.board[row][column].index == self.board[row+1][column].index == self.board[row+2][column].index:
                 top, bottom, left, right = EMPTY, EMPTY, EMPTY, EMPTY
                 if row+1 < self.rows:
-                    bottom = self.board[row+1][column].image
+                    bottom = self.board[row+1][column].index
                 if row-1 > 0:
-                    top = self.board[row-1][column].image
+                    top = self.board[row-1][column].index
                 if column+1 < self.columns:
-                    right = self.board[row][column+1].image
+                    right = self.board[row][column+1].index
                 if column-1 > 0 and self.board[row][column-1] is not None:
-                    left = self.board[row][column-1].image
+                    left = self.board[row][column-1].index
 
                 surroundingBlocks = [top, bottom, left, right]
 
@@ -198,7 +185,7 @@ class GameBoard:
                     if b in blockTypes:
                         blockTypes.remove(b)
 
-                self.board[row][column].image = random.choice(blockTypes)
+                self.board[row][column].index = random.choice(blockTypes)
 
     def refreshBoard(self):
         self.state = 'removeMatches' # For when a new row of blocks is being generated
@@ -231,17 +218,17 @@ class GameBoard:
 
         # Horizontal check
         for row, column in itertools.product(range(newRow), range(self.columns-2)):
-            if newBlocks[row][column].image == newBlocks[row][column+1].image == newBlocks[row][column+2].image: #A match!
+            if newBlocks[row][column].index == newBlocks[row][column+1].index == newBlocks[row][column+2].index: #A match!
                         # Change the image index of the first block
                 top, bottom, left, right = EMPTY, EMPTY, EMPTY, EMPTY
                 if row+1 < newRow:
-                    bottom = newBlocks[row+1][column].image
+                    bottom = newBlocks[row+1][column].index
                 if row-1 > 0:
-                    top = newBlocks[row-1][column].image
+                    top = newBlocks[row-1][column].index
                 if column+1 < self.columns:
-                    right = newBlocks[row][column+1].image
+                    right = newBlocks[row][column+1].index
                 if column-1 > 0:
-                    left = newBlocks[row][column-1].image
+                    left = newBlocks[row][column-1].index
 
                 surroundingBlocks = [top, bottom, left, right]
 
@@ -254,11 +241,11 @@ class GameBoard:
                     if b in blockTypes:
                         blockTypes.remove(b)
 
-                newBlocks[row][column].image = random.choice(blockTypes) # Pick a new block
+                newBlocks[row][column].index = random.choice(blockTypes) # Pick a new block
 
         # Check if  there's a block on the top of the board
         for c in range(self.columns):
-            if self.board[0][c].image is not EMPTY:
+            if self.board[0][c].index is not EMPTY:
                 self.canAdd = False
             else:
                 self.canAdd = True
@@ -288,7 +275,7 @@ class GameBoard:
         for row in self.board:
             for block in row:
                 if block is not None:
-                    block.draw(self.screen)
+                    block.draw()
         self.player.blitme(450, 120)
         self.enemy.blitme(650, 120)
 
@@ -308,9 +295,9 @@ class GameBoard:
         if pos1 is None and pos2 is None:
             pass
         else:
-            self.board[row1][column1].image, self.board[row2][column2].image = self.board[row2][column2].image, self.board[row1][column1].image
+            self.board[row1][column1].index, self.board[row2][column2].index = self.board[row2][column2].index, self.board[row1][column1].index
         # Check if a block and empty spot were swapped, if they were then start the drop
-        if self.board[row1][column1].image == EMPTY or self.board[row2][column2].image == EMPTY:
+        if self.board[row1][column1].index == EMPTY or self.board[row2][column2].index == EMPTY:
             self.getDropBlocks()
             self.state = 'dropping'
 
@@ -320,19 +307,19 @@ class GameBoard:
 
         for row in self.board:
             for column in range(self.columns-2):
-                if row[column] is not None and (row[column].image == row[column+1].image == row[column+2].image) and (row[column].image != EMPTY):
+                if row[column] is not None and (row[column].index == row[column+1].index == row[column+2].index) and (row[column].index != EMPTY):
                     r = self.board.index(row)
                     match = [(r,column), (r,column+1), (r,column+2)]
-                    if column + 3 < self.columns and row[column+3].image == row[column].image:
+                    if column + 3 < self.columns and row[column+3].index == row[column].index:
                         match.append((r, column+3))
 
                     matches.append(match)
 
         for column in range(self.columns):
             for row in range(self.rows-2):
-                if self.board[row][column] is not None and (self.board[row][column].image == self.board[row+1][column].image == self.board[row+2][column].image) and (self.board[row][column].image != EMPTY):
+                if self.board[row][column] is not None and (self.board[row][column].index == self.board[row+1][column].index == self.board[row+2][column].index) and (self.board[row][column].index != EMPTY):
                     match = [(row,column),(row+1,column), (row+2,column)]
-                    if row + 3 < self.rows and self.board[row+3][column].image == self.board[row][column].image:
+                    if row + 3 < self.rows and self.board[row+3][column].index == self.board[row][column].index:
                         match.append((row+3, column))
 
                     matches.append(match)
@@ -353,19 +340,19 @@ class GameBoard:
                 threes += 1
                 for pos in match:
                     row, column = pos
-                    self.board[row][column].image = EMPTY
+                    self.board[row][column].index = EMPTY
 
             elif len(match) == 4:
                 fours += 1
                 for pos in match:
                     row, column = pos
-                    self.board[row][column].image = EMPTY
+                    self.board[row][column].index = EMPTY
 
             elif len(match) == 5:
                 fives += 1
                 for pos in match:
                     row, column = pos
-                    self.board[row][column].image = EMPTY
+                    self.board[row][column].index = EMPTY
 
         if len(matches) > 0:
             return threes, fours, fives # There were matches
@@ -377,7 +364,7 @@ class GameBoard:
         for dropBlock in dropBlocks:
             row, column = dropBlock
             for r in range(row, -1, -1):
-                if self.board[r][column].image != EMPTY:
+                if self.board[r][column].index != EMPTY:
                     if self.board[r][column].rect.bottom != self.board[row][column].rect.bottom:
                         anim.append(self.board[r][column])
 
@@ -393,10 +380,10 @@ class GameBoard:
                 row, column = dropBlock
                 for r in range(row, -1, -1):
                     if r == 0:
-                        self.board[r][column].image = -1
+                        self.board[r][column].index = -1
 
                     else:
-                        self.board[r][column].image = self.board[r-1][column].image
+                        self.board[r][column].index = self.board[r-1][column].index
 
             self.animProgress = 0 # Reset animation progress meter
 
@@ -406,7 +393,7 @@ class GameBoard:
 
         for r in range(self.rows):
             for c in range(self.columns):
-                if self.board[r][c] is not None and self.board[r][c].image == EMPTY and self.board[r-1][c] is not None and self.board[r-1][c].image != EMPTY:
+                if self.board[r][c] is not None and self.board[r][c].index == EMPTY and self.board[r-1][c] is not None and self.board[r-1][c].index != EMPTY:
                     if r-1 >= 0: # Without this it will detect the blank spot on the top of the board
                         dropBlocks.append((r,c))
         return dropBlocks
@@ -455,6 +442,7 @@ class GameBoard:
             self.state = 'removeMatches'
         elif self.state == 'removeMatches':
             removed = self.removeMatches() # Matches found and removed
+
             if removed != 0:
                 dropBlocks = self.getDropBlocks()
                 # Change the player's animation to their attacking one
@@ -482,25 +470,24 @@ class GameBoard:
                     self.state = 'removeMatches'
 
 class Block:
-    _counter = 0
     def __init__(self,image,pos):
-        self.images = [pygame.image.load('sprites\spr_blkBlu.png').convert(),
-        pygame.image.load('sprites\spr_blkRed.png').convert(),
-        pygame.image.load('sprites\spr_blkGrn.png').convert(),
-        pygame.image.load('sprites\spr_blkYlw.png').convert(),
-        pygame.image.load('sprites\spr_blkPrp.png').convert()]
-        self.image = image
+        self.spritesheet = Spritesheet('blocks')
+        self.index = image
+        self.image = Spritesheet.getFrames(self, 2, self.index, blockSize, blockSize)
+        self.frame = 0
         self.rect = pygame.Rect(0,0,blockSize,blockSize)
         self.rect.topleft = pos
 
         self.direction = []
-    def draw(self, surface):
-        if self.image > EMPTY:
-            surface.blit(self.images[self.image], self.rect)
+
+    def draw(self):
+        self.image = Spritesheet.getFrames(self, 2, self.index, blockSize, blockSize) # Reload the sprite so that the board is accurate
+        if self.index > EMPTY:
+            screen.blit(self.image[self.frame], self.rect)
 
 class Spritesheet:
     def __init__(self, filename):
-        self.spritesheet = pygame.image.load('sprites\spr_' + filename + '.png').convert()
+        self.spritesheet = pygame.image.load(os.path.join('sprites', 'spr_' + filename + '.png')).convert()
 
     def getImage(self, x, y, width, height):
         image = pygame.Surface((width, height))
@@ -509,16 +496,16 @@ class Spritesheet:
 
         return image
 
-    def getFrames(self, frames, y):
+    def getFrames(self, frames, y, width, height):
         frame = 0
-        position = y * charSize # Where the first frame of an animation is on the spritesheet
+        position = y * width # Where the first frame of an animation is on the spritesheet
         framesList = []
         for x in range(frames):
             if x == 0:
-                framesList.append(self.spritesheet.getImage(frame, position, charSize, charSize))
+                framesList.append(self.spritesheet.getImage(frame, position, width, height))
             else:
-                frame += charSize
-                framesList.append(self.spritesheet.getImage(frame, position, charSize, charSize))
+                frame += height
+                framesList.append(self.spritesheet.getImage(frame, position, width, height))
 
         return framesList
 
@@ -553,7 +540,7 @@ class Character(object):
         self.notHurt = True
         self.canAtk = True # For the enemy
         self.isAtk = False
-        self.screen = screen
+        #self.screen = screen
         self.gameboard = gameboard
         # Animation control
         self.currentFrame = 0
@@ -636,12 +623,12 @@ class Character(object):
             self.notHurt = True
 
     def loadImages(self):
-        self.idleFrames = Spritesheet.getFrames(self, 2, 0)
-        self.atkFrames = Spritesheet.getFrames(self, 2, 1)
-        self.spclFrames = Spritesheet.getFrames(self, 2, 2)
-        self.hurtFrames = Spritesheet.getFrames(self, 2, 3)
-        self.loseFrames = Spritesheet.getFrames(self, 2, 4)
-        self.winFrames = Spritesheet.getFrames(self, 2, 5)
+        self.idleFrames = Spritesheet.getFrames(self, 2, 0, charSize, charSize)
+        self.atkFrames = Spritesheet.getFrames(self, 2, 1, charSize, charSize)
+        self.spclFrames = Spritesheet.getFrames(self, 2, 2, charSize, charSize)
+        self.hurtFrames = Spritesheet.getFrames(self, 2, 3, charSize, charSize)
+        self.loseFrames = Spritesheet.getFrames(self, 2, 4, charSize, charSize)
+        self.winFrames = Spritesheet.getFrames(self, 2, 5, charSize, charSize)
         # Keep a list of animation states
         self.animStates = dict(
             idle = self.idleFrames,
@@ -673,7 +660,7 @@ class Character(object):
             if gameBoard.enemy.health == 0:
                 self.currentAnim = self.animStates['win']
         self.rect.topleft = (x, y)
-        self.screen.blit(self.image, self.rect)
+        screen.blit(self.image, self.rect)
         self.drawBars(screen)
 
 gameBoard = GameBoard(1500, 'charA', 'enemA', 100, 100) # GameBoard(block generation speed, player character, enemy, player HP, enemy HP)
