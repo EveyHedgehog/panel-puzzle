@@ -11,6 +11,15 @@ screen_height = int(1080/2)
 screen = pygame.display.set_mode((screen_width,screen_height))
 pygame.display.set_caption('Puzzle')
 
+# Key bindings
+button0 = pygame.K_a
+button1 = pygame.K_s
+button2 = pygame.K_d
+upArrow = pygame.K_UP
+downArrow = pygame.K_DOWN
+leftArrow = pygame.K_LEFT
+rightArrow = pygame.K_RIGHT
+
 # Images
 gameBG = pygame.image.load(os.path.join('sprites', 'spr_bg.png')).convert()
 cursor = pygame.image.load(os.path.join('sprites', 'spr_cursor.png')).convert_alpha()
@@ -77,17 +86,34 @@ class Cursor(object):
             self.y = boardYmax
 # Game control
 class GameBoard:
-    def __init__(self, blockFall, player, enemy, playerHP, enemyHP):
+    def __init__(self, blockFall, player, enemy, playerHP, enemyHP, blockColors):
         self.screen = pygame.display.get_surface()
         self.rows = ROWS
         self.columns = COLUMNS
         # Set up the board's 2D Array
-        self.board = []
+        self.board =  []
         for r in range(self.rows):
             self.board.append([])
         for row in self.board:
             for c in range(self.columns):
                 row.append(None)
+        # 2D Array of the board, used for match detection
+        self.boardTable = [
+            [-1, -1, -1, -1, -1],
+            [-1, -1, -1, -1, -1],
+            [-1, -1, -1, -1, -1],
+            [-1, -1, -1, -1, -1],
+            [-1, -1, -1, -1, -1],
+            [-1, -1, -1, -1, -1],
+            [-1, -1, -1, -1, -1]
+        ]
+        self.blockColors = blockColors
+        if self.blockColors <= 1:
+            # Board needs at least 3 different colors
+            self.blockColors = 2
+        if self.blockColors > blockNum:
+            # If the number given in blockColors is more than blockNum then default to max colors
+            self.blockColors = blockNum
 
         self.countTime = pygame.time.get_ticks()
         self.waitTime = blockFall
@@ -122,7 +148,7 @@ class GameBoard:
         for r in range(self.rows):
             if r == ROWS-1:
                 for c in range(self.columns):
-                    image = random.randint(0, blockNum)
+                    image = random.randint(0, self.blockColors)
                     x,y = self.boardRects[r][c].left, self.boardRects[r][c].bottom - boardYmin
                     block = Block(image, (x,y))
                     self.board[r][c] = block
@@ -151,9 +177,9 @@ class GameBoard:
 
                 surroundingBlocks = [top, bottom, left, right]
 
-                blockTypes = [] # List of block types from 0 to blockNum
+                blockTypes = [] # List of block types from 0 to blockColors
 
-                for x in range(blockNum+1):
+                for x in range(self.blockColors+1):
                     blockTypes.append(x)
 
                 for b in surroundingBlocks:
@@ -178,7 +204,7 @@ class GameBoard:
                 surroundingBlocks = [top, bottom, left, right]
 
                 blockTypes = []
-                for x in range(blockNum+1):
+                for x in range(self.blockColors+1):
                     blockTypes.append(x)
 
                 for b in surroundingBlocks:
@@ -195,6 +221,15 @@ class GameBoard:
                 if self.board[row][column] is not None:
                     self.board[row][column].rect.bottomleft = self.boardRects[row][column].bottomleft
                     self.board[row][column].rect.move_ip(0,5) # Without this the board moves up 5 pixels
+        # Make a table of the board's block's indexes
+        newBoard = []
+        for row in range(self.rows):
+            columns = []
+            for column in range(self.columns):
+                columns.append(self.board[row][column].index)
+
+            newBoard.append(columns)
+        self.boardTable = newBoard
 
     def generateBlocks(self):
         newBlocks = []
@@ -211,7 +246,7 @@ class GameBoard:
         #Make new row of blocks to generate at the bottom of board
         for r in range(newRow):
             for c in range(self.columns):
-                image = random.randint(0, blockNum)
+                image = random.randint(0, self.blockColors)
                 x,y = self.boardRects[r][c].left, self.boardRects[r][c].bottom - boardYmin
                 block = Block(image, (x,y))
                 newBlocks[r][c] = block
@@ -232,9 +267,9 @@ class GameBoard:
 
                 surroundingBlocks = [top, bottom, left, right]
 
-                blockTypes = [] # List of block types from 0 to blockNum
+                blockTypes = [] # List of block types from 0 to blockColors
 
-                for x in range(blockNum+1):
+                for x in range(self.blockColors+1):
                     blockTypes.append(x)
 
                 for b in surroundingBlocks:
@@ -303,28 +338,28 @@ class GameBoard:
 
 
     def checkForMatches(self):
-        matches = []
+        # Thanks to Nova the Squirrel for the code
+        height = len(self.boardTable)
+        width = len(self.boardTable[0])
+        match = set()
 
-        for row in self.board:
-            for column in range(self.columns-2):
-                if row[column] is not None and (row[column].index == row[column+1].index == row[column+2].index) and (row[column].index != EMPTY):
-                    r = self.board.index(row)
-                    match = [(r,column), (r,column+1), (r,column+2)]
-                    if column + 3 < self.columns and row[column+3].index == row[column].index:
-                        match.append((r, column+3))
+        for row in range(height):
+            for column in range(width):
+                color = self.boardTable[row][column]
+                if color != -1:
+                    if column != 0 and column != width-1:
+                        if self.boardTable[row][column-1] == color and self.boardTable[row][column+1] == color:
+                            match.add((row, column-1))
+                            match.add((row, column))
+                            match.add((row, column+1))
+                    if row != 0 and row != height-1:
+                        if self.boardTable[row-1][column] == color and self.boardTable[row+1][column] == color:
+                            match.add((row-1, column))
+                            match.add((row, column))
+                            match.add((row+1, column))
 
-                    matches.append(match)
 
-        for column in range(self.columns):
-            for row in range(self.rows-2):
-                if self.board[row][column] is not None and (self.board[row][column].index == self.board[row+1][column].index == self.board[row+2][column].index) and (self.board[row][column].index != EMPTY):
-                    match = [(row,column),(row+1,column), (row+2,column)]
-                    if row + 3 < self.rows and self.board[row+3][column].index == self.board[row][column].index:
-                        match.append((row+3, column))
-
-                    matches.append(match)
-
-        return matches
+        return match
 
     def removeMatches(self):
         matches = self.checkForMatches()
@@ -334,30 +369,31 @@ class GameBoard:
         fives = 0
 
         for match in matches:
-            row, column = match[0]
-
-            if len(match) == 3:
+            if len(matches) == 3:
                 threes += 1
-                for pos in match:
-                    row, column = pos
-                    self.board[row][column].index = EMPTY
-
-            elif len(match) == 4:
+            elif len(matches) == 4:
                 fours += 1
-                for pos in match:
-                    row, column = pos
-                    self.board[row][column].index = EMPTY
-
-            elif len(match) == 5:
+            elif len(matches) == 5:
                 fives += 1
-                for pos in match:
-                    row, column = pos
-                    self.board[row][column].index = EMPTY
+            elif len(matches) > 5:
+                if self.player.spclMeter < self.player.maxSpclMeter:
+                    self.player.spclMeter += 1
+            row, column = match
+            removeTimer = threading.Thread(target=self.animateBlock, args=(row, column))
+            removeTimer.start()
 
         if len(matches) > 0:
             return threes, fours, fives # There were matches
 
         return 0 # No matches
+
+    def animateBlock(self, row, column):
+        # Change the matched block to its popped frame
+        self.board[row][column].frame = 1
+        time.sleep(0.3)
+        self.board[row][column].frame = 0
+        self.board[row][column].index = EMPTY
+
     def animatePullDown(self, dropBlocks):
         # Bring a floating block one cell down until it's not under an empty space
         anim = []
@@ -399,37 +435,35 @@ class GameBoard:
         return dropBlocks
 
     def playerInput(self):
+        dt = clock.tick(20)
         if self.player.health <= 0 or self.enemy.health <= 0:
             CURSOR.canControl = False
         keys = pygame.key.get_pressed()
-        if keys[pygame.K_UP]:
+        if keys[upArrow]:
             CURSOR.keyDirection.y -= gridSize
-        elif keys[pygame.K_DOWN]:
+        elif keys[downArrow]:
             CURSOR.keyDirection.y += gridSize
-        if keys[pygame.K_LEFT]:
+        if keys[leftArrow]:
             CURSOR.keyDirection.x -= gridSize
-        elif keys[pygame.K_RIGHT]:
+        elif keys[rightArrow]:
             CURSOR.keyDirection.x += gridSize
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_a:
+                if event.key == button0:
                     if self.state == 'start' or self.state == 'dropping':
                         if CURSOR.canControl is True:
                             self.pick1 = self.checkButtonPress(CURSOR.hitA[0:2])
                             self.pick2 = self.checkButtonPress(CURSOR.hitB[0:2])
                             self.swapBlocks(self.pick1, self.pick2)
-                elif event.key == pygame.K_q:
-                    with open('test.txt', 'w') as f:
-                        original = sys.stdout
-                        sys.stdout = f
-                        print(self.board)
-                        sys.stdout = original
+                elif event.key == button1:
+                    self.generateBlocks()
                 elif event.key == pygame.K_w:
                     #Testing.....
-                    self.player.health = 0
+                    #self.player.spclMeter += 1
+                    print(self.player.spclMeter)
 
     def boardControl(self):
         self.runGenerate()
@@ -441,12 +475,15 @@ class GameBoard:
             self.pick1, self.pick2 = None, None
             self.state = 'removeMatches'
         elif self.state == 'removeMatches':
+            self.refreshBoard()
             removed = self.removeMatches() # Matches found and removed
 
             if removed != 0:
                 dropBlocks = self.getDropBlocks()
                 # Change the player's animation to their attacking one
-                self.player.currentAnim = self.player.animStates['atk']
+                if self.enemy.health >= 0.9:
+                    # Don't change the animation if the enemy is dead
+                    self.player.currentAnim = self.player.animStates['atk']
                 # Damage the enemy
                 for index in range(len(removed)):
                     totalDamage = 0.0
@@ -563,9 +600,9 @@ class Character(object):
         else:
             drawHealthBar(surf, healthRect.topleft, healthRect.size,
                     (0, 0, 0), (0, 0, 0), (0, 0, 0), 0)
-        if self.spclMeter >= 0.9:
+        if self.spclMeter > 0:
             drawHealthBar(surf, spclRect.topleft, spclRect.size,
-                    (0, 0, 0), (0, 0, 0), (0, 0, 255), self.health/self.maxHealth)
+                    (0, 0, 0), (0, 0, 0), (79, 191, 255), self.spclMeter/self.maxSpclMeter)
         else:
             drawHealthBar(surf, spclRect.topleft, spclRect.size,
                     (0, 0, 0), (0, 0, 0), (0, 0, 0), 0)
@@ -657,21 +694,18 @@ class Character(object):
                 self.currentAnim = self.animStates['atk']
         # VICTORY!
         if self == gameBoard.player:
-            if gameBoard.enemy.health == 0:
+            if gameBoard.enemy.health <= 0:
                 self.currentAnim = self.animStates['win']
         self.rect.topleft = (x, y)
         screen.blit(self.image, self.rect)
         self.drawBars(screen)
 
-gameBoard = GameBoard(1500, 'charA', 'enemA', 100, 100) # GameBoard(block generation speed, player character, enemy, player HP, enemy HP)
+gameBoard = GameBoard(1500, 'charA', 'enemA', 100, 400, 2) # GameBoard(block generation speed, player character, enemy, player HP, enemy HP, amount of colors to generate)
 gameBoard.setBoard()
 CURSOR = Cursor()
 
 # More pygame specific stuff....
 while True:
-    # Framerate independence
-    dt = clock.tick(20)
-    moveSpd = 1 / float(dt)
     # Visuals
     screen.blit(gameBG, gameBG.get_rect())
     screen.blit(board, boardPos)
@@ -682,7 +716,7 @@ while True:
     # Board control, board control
     gameBoard.boardControl()
     eneAtkTimer = threading.Thread(target=gameBoard.enemy.enemyAtk)
-    if gameBoard.enemy.canAtk is True:
+    if gameBoard.enemy.canAtk is True and gameBoard.enemy.health >= 0.9:
         eneAtkTimer.start()
     # Updating the window
     pygame.display.flip()
