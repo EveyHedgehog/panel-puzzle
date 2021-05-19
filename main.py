@@ -53,6 +53,11 @@ assert (BOARDWIDTH * BOARDHEIGHT) % 2 == 0, 'Need even board!'
 board = pygame.image.load(os.path.join('sprites', 'spr_window.png')).convert()
 boardPos = pygame.math.Vector2(194,35) # Remember to double this
 
+def Text(font, size, text, color, x, y):
+    fonts = pygame.font.Font(os.path.join('fonts', 'fnt_' + font + '.ttf'), size)
+    string = fonts.render(text, True, color)
+    screen.blit(string,(x,y))
+
 class Cursor(object):
     def __init__(self):
         self.x = boardXmin
@@ -86,7 +91,7 @@ class Cursor(object):
             self.y = boardYmax
 # Game control
 class GameBoard:
-    def __init__(self, blockFall, player, enemy, playerHP, enemyHP, blockColors):
+    def __init__(self, blockFall, player, enemy, playerHP, enemyHP, blockColors, enemyTurns):
         self.screen = pygame.display.get_surface()
         self.rows = ROWS
         self.columns = COLUMNS
@@ -124,6 +129,8 @@ class GameBoard:
         # Characters
         self.player = Character(self, player, 0, 0, playerHP)
         self.enemy = Character(self, enemy, 0, 0, enemyHP)
+        self.maxEnemyTurn = enemyTurns # Now with new turn-based flavor!
+        self.enemyTurn = self.maxEnemyTurn
 
 
         # Rects to represent where a block would be
@@ -358,7 +365,6 @@ class GameBoard:
                             match.add((row, column))
                             match.add((row+1, column))
 
-
         return match
 
     def removeMatches(self):
@@ -460,6 +466,10 @@ class GameBoard:
                             self.swapBlocks(self.pick1, self.pick2)
                 elif event.key == button1:
                     self.generateBlocks()
+                elif event.key == button2:
+                    if self.player.spclMeter == self.player.maxSpclMeter:
+                        self.player.spclMeter = 0
+                        self.enemy.enemyDamageCalc(2500)
                 elif event.key == pygame.K_w:
                     #Testing.....
                     #self.player.spclMeter += 1
@@ -473,6 +483,9 @@ class GameBoard:
                 self.state = 'swapping'
         elif self.state == 'swapping':
             self.pick1, self.pick2 = None, None
+            if self.enemyTurn <= self.maxEnemyTurn:
+                if self.enemyTurn >= 0.9:
+                    self.enemyTurn -= 1
             self.state = 'removeMatches'
         elif self.state == 'removeMatches':
             self.refreshBoard()
@@ -481,8 +494,8 @@ class GameBoard:
             if removed != 0:
                 dropBlocks = self.getDropBlocks()
                 # Change the player's animation to their attacking one
-                if self.enemy.health >= 0.9:
-                    # Don't change the animation if the enemy is dead
+                if self.enemy.health >= 0.9 or self.player.health >= 0.9:
+                    # Don't change the animation if the enemy/player is dead
                     self.player.currentAnim = self.player.animStates['atk']
                 # Damage the enemy
                 for index in range(len(removed)):
@@ -495,8 +508,15 @@ class GameBoard:
                         elif index == 2:
                             totalDamage += removed[index] * fiveMatch
                         self.enemy.enemyDamageCalc(totalDamage)
+                        if self.enemyTurn <= self.maxEnemyTurn:
+                            if self.enemyTurn >= 0.9:
+                                self.enemyTurn -= 1
+
                 self.state = 'dropping'
             elif removed == 0: # No more matches
+                if self.enemyTurn == 0:
+                    self.enemy.isAtk = True
+                    self.enemy.enemyAtk()
                 self.state = 'start'
         elif self.state == 'dropping':
             if self.animatePullDown(self.dropBlocks) == 1:
@@ -575,8 +595,8 @@ class Character(object):
         self.spclMeter = 0
         self.maxSpclMeter = 10
         self.notHurt = True
-        self.canAtk = True # For the enemy
-        self.isAtk = False
+        #self.canAtk = True # For the enemy
+        self.isAtk = False # For the enemy
         #self.screen = screen
         self.gameboard = gameboard
         # Animation control
@@ -638,21 +658,22 @@ class Character(object):
             else:
                 gameBoard.player.health = 0
             time.sleep(0.8)
+            gameBoard.enemyTurn = gameBoard.maxEnemyTurn
             self.isAtk = False
 
     def enemyAtk(self):
         if gameBoard.player.health >= 0.9:
-            waitToDecide = random.uniform(1.0, 2.5)
-            self.canAtk = False
-            time.sleep(waitToDecide)
+            #waitToDecide = random.uniform(1.0, 2.5)
+            #self.canAtk = False
+            #time.sleep(waitToDecide)
             self.isAtk = True
             damageTimer = threading.Thread(target=self.playerDamageCalc)
             damageTimer.start()
-            time.sleep(waitToDecide)
-            self.canAtk = True
+            #time.sleep(waitToDecide)
+            #self.canAtk = True
         else:
             self.isAtk = False
-            self.canAtk = False
+            #self.canAtk = False
 
     def checkHurt(self):
         if self.notHurt is False:
@@ -690,6 +711,7 @@ class Character(object):
             self.currentAnim = self.animStates['lose']
         # Just for the enemy
         if self == gameBoard.enemy:
+            Text('slkscr', 15, 'Next:' + str(gameBoard.enemyTurn), (0,0,0), (x + 40), (y - 35))
             if self.isAtk is True:
                 self.currentAnim = self.animStates['atk']
         # VICTORY!
@@ -700,7 +722,7 @@ class Character(object):
         screen.blit(self.image, self.rect)
         self.drawBars(screen)
 
-gameBoard = GameBoard(1500, 'charA', 'enemA', 100, 400, 2) # GameBoard(block generation speed, player character, enemy, player HP, enemy HP, amount of colors to generate)
+gameBoard = GameBoard(1500, 'charA', 'enemA', 100, 400, 2, 3) # GameBoard(block generation speed, player character, enemy, player HP, enemy HP, amount of colors to generate, player Turns until enemy attacks)
 gameBoard.setBoard()
 CURSOR = Cursor()
 
@@ -715,9 +737,9 @@ while True:
     gameBoard.playerInput()
     # Board control, board control
     gameBoard.boardControl()
-    eneAtkTimer = threading.Thread(target=gameBoard.enemy.enemyAtk)
-    if gameBoard.enemy.canAtk is True and gameBoard.enemy.health >= 0.9:
-        eneAtkTimer.start()
+    # eneAtkTimer = threading.Thread(target=gameBoard.enemy.enemyAtk)
+    # if gameBoard.enemy.canAtk is True and gameBoard.enemy.health >= 0.9:
+    #     eneAtkTimer.start()
     # Updating the window
     pygame.display.flip()
     clock.tick(60) # Limit FPS
