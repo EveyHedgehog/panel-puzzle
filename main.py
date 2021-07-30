@@ -458,11 +458,11 @@ class GameBoard:
         keys = pygame.key.get_pressed()
         if keys[upArrow]:
             CURSOR.keyDirection.y -= gridSize
-        elif keys[downArrow]:
+        if keys[downArrow]:
             CURSOR.keyDirection.y += gridSize
         if keys[leftArrow]:
             CURSOR.keyDirection.x -= gridSize
-        elif keys[rightArrow]:
+        if keys[rightArrow]:
             CURSOR.keyDirection.x += gridSize
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
