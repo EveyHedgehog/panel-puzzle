@@ -348,6 +348,10 @@ class GameBoard:
             pass
         else:
             self.board[row1][column1].index, self.board[row2][column2].index = self.board[row2][column2].index, self.board[row1][column1].index
+            if self.boardTable[self.pick1[0]][self.pick1[1]] != -1 and self.boardTable[self.pick2[0]][self.pick2[1]] != -1 or self.boardTable[self.pick1[0]][self.pick1[1]] != -1 and self.boardTable[self.pick2[0]][self.pick2[1]] == -1 or self.boardTable[self.pick1[0]][self.pick1[1]] == -1 and self.boardTable[self.pick2[0]][self.pick2[1]] != -1:
+                if self.enemyTurn <= self.maxEnemyTurn: # Only tick down the enemy turn if the blocks swapped weren't both empty spaces
+                    if self.enemyTurn >= 0.9 and self.enemy.health >= 0.9:
+                        self.enemyTurn -= 1
         # Check if a block and empty spot were swapped, if they were then start the drop
         if self.board[row1][column1].index == EMPTY or self.board[row2][column2].index == EMPTY:
             self.getDropBlocks()
@@ -476,6 +480,9 @@ class GameBoard:
                             self.swapBlocks(self.pick1, self.pick2)
                 elif event.key == button1:
                     self.waitTime = 0
+                    if self.enemyTurn <= self.maxEnemyTurn:
+                        if self.enemyTurn >= 0.9  and self.enemy.health >= 0.9:
+                            self.enemyTurn -= 1
                 elif event.key == button2:
                     if self.player.spclMeter == self.player.maxSpclMeter:
                         self.player.currentAnim = self.player.animStates['spcl']
@@ -500,9 +507,6 @@ class GameBoard:
         elif self.state == 'swapping':
             self.refreshBoard()
             self.pick1, self.pick2 = None, None
-            if self.enemyTurn <= self.maxEnemyTurn:
-                if self.enemyTurn >= 0.9 and self.enemy.health >= 0.9:
-                    self.enemyTurn -= 1
             self.state = 'removeMatches'
         elif self.state == 'removeMatches':
             self.refreshBoard()
@@ -525,9 +529,9 @@ class GameBoard:
                         elif index == 2:
                             totalDamage += removed[index] * fiveMatch
                         self.enemy.enemyDamageCalc(totalDamage)
-                        if self.enemyTurn <= self.maxEnemyTurn:
-                            if self.enemyTurn >= 0.9  and self.enemy.health >= 0.9:
-                                self.enemyTurn -= 1
+                        # if self.enemyTurn <= self.maxEnemyTurn:
+                        #     if self.enemyTurn >= 0.9  and self.enemy.health >= 0.9:
+                        #         self.enemyTurn -= 1
 
                 self.state = 'dropping'
             elif removed == 0: # No more matches
