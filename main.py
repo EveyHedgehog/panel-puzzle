@@ -293,17 +293,16 @@ class GameBoard:
                 newBlocks[row][column].index = random.choice(blockTypes) # Pick a new block
 
         # Check if  there's a block on the top of the board
-        for c in range(self.columns):
-            if self.board[0][c].index != EMPTY:
-                self.canAdd = False
-            else:
-                self.canAdd = True
-
+        rowCheck = self.boardTable[0]
+        if all(x == rowCheck[0] for x in rowCheck) == True:
+            self.canAdd = True # If all the numbers in rowCheck are the same, then a new row can be added
+        elif all(x == rowCheck[0] for x in rowCheck) == False:
+            self.canAdd = False # If all the numbers in rowCheck aren't the same, then a new row can't be added
         if self.player.health == 0 or self.enemy.health == 0:
             self.canAdd = False
-        elif self.state == 'removeMatches' or self.state == 'dropping':
+        if self.state == 'removeMatches' or self.state == 'dropping':
             self.canAdd = False
-        if self.canAdd is True:
+        if self.canAdd == True:
             for block in newBlocks:
                 self.board.pop(0) # Get rid of the topmost row
                 self.board.append(block) # Add the new blocks
@@ -426,7 +425,7 @@ class GameBoard:
                 cell.rect.move_ip(0, +animSpd)
             self.animProgress += animSpd
         else:
-            self.refreshBoard()
+            self.refreshBoard() # Won't animate right without this
 
             # Actually pull down the blocks 1 row, by setting every space's image to the image of the space above it
             for dropBlock in dropBlocks:
@@ -499,6 +498,7 @@ class GameBoard:
             if self.pick1 is not None and self.pick2 is not None:
                 self.state = 'swapping'
         elif self.state == 'swapping':
+            self.refreshBoard()
             self.pick1, self.pick2 = None, None
             if self.enemyTurn <= self.maxEnemyTurn:
                 if self.enemyTurn >= 0.9 and self.enemy.health >= 0.9:
@@ -534,11 +534,13 @@ class GameBoard:
                 if self.enemyTurn == 0:
                     self.enemy.isAtk = True
                     self.enemy.enemyAtk()
+                self.refreshBoard()
                 self.state = 'start'
         elif self.state == 'dropping':
             if self.animatePullDown(self.dropBlocks) == 1:
                 self.dropBlocks = self.getDropBlocks()
                 if self.dropBlocks != []:
+                    self.refreshBoard()
                     self.state = 'dropping'
                 else:
                     self.state = 'removeMatches'
