@@ -104,15 +104,7 @@ class GameBoard:
             for c in range(self.columns):
                 row.append(None)
         # 2D Array of the board, used for match detection
-        self.boardTable = [
-            [-1, -1, -1, -1, -1],
-            [-1, -1, -1, -1, -1],
-            [-1, -1, -1, -1, -1],
-            [-1, -1, -1, -1, -1],
-            [-1, -1, -1, -1, -1],
-            [-1, -1, -1, -1, -1],
-            [-1, -1, -1, -1, -1]
-        ]
+        self.boardTable = [[-1 for i in range(self.columns)] for j in range(self.rows)]
         self.blockColors = blockColors
         if self.blockColors <= 1:
             # Board needs at least 3 different colors
