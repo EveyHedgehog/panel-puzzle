@@ -536,18 +536,18 @@ class GameBoard:
                     self.state = 'removeMatches'
 
 def runGame(self):
-        # Visuals
-        screen.blit(gameBG, gameBG.get_rect())
-        screen.blit(board, boardPos)
-        self.draw()
-        CURSOR.draw(screen)
-        # Handling input
-        self.playerInput()
-        # Board control, board control
-        self.boardControl()
-        # Updating the window
-        pygame.display.flip()
-        clock.tick(60) # Limit FPS
+    # Visuals
+    screen.blit(gameBG, gameBG.get_rect())
+    screen.blit(board, boardPos)
+    self.draw()
+    CURSOR.draw(screen)
+    # Handling input
+    self.playerInput()
+    # Board control, board control
+    self.boardControl()
+    # Updating the window
+    pygame.display.flip()
+    clock.tick(60) # Limit FPS
 
 class Block:
     def __init__(self,image,pos):
