@@ -308,12 +308,6 @@ class GameBoard:
             self.waitTime = self.waitTimeStatic
             self.generateBlocks()
 
-    def getBoard(self):
-        # This was in the Bejewled code, I don't use this for anything. Could this be removed?
-        """ Returns board structure as a generator """
-        for row in self.board:
-            yield row
-
     def draw(self):
         for row in self.board:
             for block in row:
