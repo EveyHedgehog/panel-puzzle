@@ -535,7 +535,7 @@ class GameBoard:
                 else:
                     self.state = 'removeMatches'
 
-    def runGame(self):
+def runGame(self):
         # Visuals
         screen.blit(gameBG, gameBG.get_rect())
         screen.blit(board, boardPos)
@@ -749,4 +749,4 @@ CURSOR = Cursor()
 
 # More pygame specific stuff....
 while True:
-    GameBoard.runGame(gameBoard)
+    runGame(gameBoard)
