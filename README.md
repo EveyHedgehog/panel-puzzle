@@ -7,4 +7,4 @@ A not-Panel de Pon made in pygame (but later to be changed to renpy code because
 
 Note: This is a single board game
 
-![Example](https://github.com/EveyHedgehog/panel-puzzle/raw/master/src/example.gif)
+![Example](https://github.com/EveyHedgehog/panel-puzzle/raw/master/example.gif)
