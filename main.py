@@ -40,10 +40,10 @@ fiveMatch = 150
 # Remember to double these sizes when you get to Renpy thanks
 BOARDWIDTH = 240
 BOARDHEIGHT = 480
-boardXmin = 194
-boardXmax = 354.5
-boardYmin = 35
-boardYmax = 475.5
+boardXmin = int(screen_width*0.202083)
+boardXmax = screen_width*0.36927083
+boardYmin = int(screen_height*0.064814814814815)
+boardYmax = screen_height*0.88055555555556
 
 ROWS = 12
 COLUMNS = 6
@@ -52,7 +52,7 @@ COLUMNS = 6
 assert (BOARDWIDTH * BOARDHEIGHT) % 2 == 0, 'Need even board!'
 # Have an image for the board. lol
 board = pygame.image.load(os.path.join('sprites', 'spr_window.png')).convert()
-boardPos = (194,35) # Remember to double this
+boardPos = (boardXmin,boardYmin)
 
 def Text(font, size, text, color, x, y):
     fonts = pygame.font.Font(os.path.join('fonts', 'fnt_' + font + '.ttf'), size)
@@ -342,8 +342,8 @@ class GameBoard:
             for block in row:
                 if block is not None:
                     block.draw()
-        self.player.blitme(450, 120)
-        self.enemy.blitme(650, 120)
+        self.player.blitme(int(screen_width*0.46875), int(screen_height*0.222))
+        self.enemy.blitme(int(screen_width*0.677083), int(screen_height*0.222))
 
     def checkButtonPress(self,hitbox):
         # For cursor control
