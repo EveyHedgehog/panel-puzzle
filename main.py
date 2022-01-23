@@ -63,7 +63,7 @@ class Cursor(object):
     def __init__(self):
         self.x = boardXmin
         self.y = boardYmin
-        self.keyDirection = pygame.math.Vector2(0,0)
+        #self.keyDirection = pygame.math.Vector2(0,0)
         self.image = cursor
         self.canControl = True
         # Rect for blit position
@@ -76,11 +76,45 @@ class Cursor(object):
         surface.blit(cursor, (self.x, self.y))
         self.hitA = (self.x, self.y, blockSize, blockSize)
         self.hitB = (self.x + blockSize, self.y, blockSize, blockSize)
-        # Keep cursor movement within the grid
-        # self.x += (round(float(self.keyDirection.x)/gridSize))*gridSize # This worked with Python 2, but it won't work properly on 3 me angy
-        # self.y += (round(float(self.keyDirection.y)/gridSize))*gridSize
-        self.x = self.keyDirection.x
-        self.y = self.keyDirection.y
+    def update(self,board):
+        dt = clock.tick(20)
+        if board.player.health <= 0 or board.enemy.health <= 0:
+            self.canControl = False
+        keys = pygame.key.get_pressed()
+        if keys[upArrow]:
+            self.y -= gridSize
+        if keys[downArrow]:
+            self.y += gridSize
+        if keys[leftArrow]:
+            self.x -= gridSize
+        if keys[rightArrow]:
+            self.x += gridSize
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == button0:
+                    if board.state == 'start' or board.state == 'dropping':
+                        if self.canControl is True:
+                            board.pick1 = board.checkButtonPress(self.hitA[0:2])
+                            board.pick2 = board.checkButtonPress(self.hitB[0:2])
+                            board.swapBlocks(board.pick1, board.pick2)
+                elif event.key == button1:
+                    board.waitTime = 0
+                    if board.enemyTurn <= board.maxEnemyTurn:
+                        if board.enemyTurn >= 0.9  and board.enemy.health >= 0.9:
+                            board.enemyTurn -= 1
+                elif event.key == button2:
+                    if board.player.spclMeter == board.player.maxSpclMeter:
+                        board.player.currentAnim = board.player.animStates['spcl']
+                        board.enemy.enemyDamageCalc(400)
+                        board.player.spclMeter = 0
+                elif event.key == pygame.K_w:
+                    #Testing.....
+                    print(board.board)
+                    print('lol')
+                    print(board.boardTable)
         # Limit cursor to only be within board
         if self.x <= boardXmin:
             self.x = boardXmin
@@ -96,14 +130,9 @@ class GameBoard:
         self.screen = pygame.display.get_surface()
         self.rows = ROWS
         self.columns = COLUMNS
-        # Set up the board's 2D Array
-        self.board =  []
-        for r in range(self.rows):
-            self.board.append([])
-        for row in self.board:
-            for c in range(self.columns):
-                row.append(None)
-        # 2D Array of the board, used for match detection
+        #Game board with objects
+        self.board = [[-1 for i in range(self.columns)] for j in range(self.rows)]
+        #Game board with sprite indexes
         self.boardTable = [[-1 for i in range(self.columns)] for j in range(self.rows)]
         self.blockColors = blockColors
         if self.blockColors <= 1:
@@ -440,43 +469,6 @@ class GameBoard:
                         dropBlocks.append((r,c))
         return dropBlocks
 
-    def playerInput(self):
-        dt = clock.tick(20)
-        if self.player.health <= 0 or self.enemy.health <= 0:
-            CURSOR.canControl = False
-        keys = pygame.key.get_pressed()
-        if keys[upArrow]:
-            CURSOR.keyDirection.y -= gridSize
-        if keys[downArrow]:
-            CURSOR.keyDirection.y += gridSize
-        if keys[leftArrow]:
-            CURSOR.keyDirection.x -= gridSize
-        if keys[rightArrow]:
-            CURSOR.keyDirection.x += gridSize
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            elif event.type == pygame.KEYDOWN:
-                if event.key == button0:
-                    if self.state == 'start' or self.state == 'dropping':
-                        if CURSOR.canControl is True:
-                            self.pick1 = self.checkButtonPress(CURSOR.hitA[0:2])
-                            self.pick2 = self.checkButtonPress(CURSOR.hitB[0:2])
-                            self.swapBlocks(self.pick1, self.pick2)
-                elif event.key == button1:
-                    self.waitTime = 0
-                    if self.enemyTurn <= self.maxEnemyTurn:
-                        if self.enemyTurn >= 0.9  and self.enemy.health >= 0.9:
-                            self.enemyTurn -= 1
-                elif event.key == button2:
-                    if self.player.spclMeter == self.player.maxSpclMeter:
-                        self.player.currentAnim = self.player.animStates['spcl']
-                        self.enemy.enemyDamageCalc(400)
-                        self.player.spclMeter = 0
-                elif event.key == pygame.K_w:
-                    #Testing.....
-                    print(self.allClear)
 
     def boardControl(self):
         self.runGenerate()
@@ -541,8 +533,6 @@ def runGame(self):
     screen.blit(board, boardPos)
     self.draw()
     CURSOR.draw(screen)
-    # Handling input
-    self.playerInput()
     # Board control, board control
     self.boardControl()
     # Updating the window
@@ -750,3 +740,5 @@ CURSOR = Cursor()
 # More pygame specific stuff....
 while True:
     runGame(gameBoard)
+    #Handling input
+    CURSOR.update(gameBoard)
