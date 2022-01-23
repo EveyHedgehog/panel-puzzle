@@ -403,16 +403,25 @@ class GameBoard:
         fours = 0
         fives = 0
 
-        for match in matches:
-            if len(matches) == 3:
+        matchedBlocks = []
+        for block in matches:
+            #print(self.boardTable[block[0]][block[1]])
+            matchedBlocks.append(self.boardTable[block[0]][block[1]])
+        # To fix the issue with two seperate x chain blocks being counted as a higher chain, does not fix the same color from being counted as one chain though
+        repeatBlocks = {i:matchedBlocks.count(i) for i in matchedBlocks}
+        for value in repeatBlocks.values():
+            if value == 3:
                 threes += 1
-            elif len(matches) == 4:
+            elif value == 4:
                 fours += 1
-            elif len(matches) == 5:
+            elif value == 5:
                 fives += 1
-            elif len(matches) > 5:
+            elif value > 5:
+                fives += 1
                 if self.player.spclMeter < self.player.maxSpclMeter:
                     self.player.spclMeter += 1
+
+        for match in matches:
             row, column = match
             removeTimer = threading.Thread(target=self.animateBlock, args=(row, column))
             removeTimer.start()
