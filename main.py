@@ -482,6 +482,14 @@ class GameBoard:
             # If blocks were swapped, change state to swapping
             if self.pick1 is not None and self.pick2 is not None:
                 self.state = 'swapping'
+            # Make sure there are no floating blocks after swapping back to start from dropping
+            if self.animatePullDown(self.dropBlocks) == 1:
+                self.dropBlocks = self.getDropBlocks()
+                if self.dropBlocks != []:
+                    self.refreshBoard()
+                    self.state = 'dropping'
+                else:
+                    self.state = 'start'
         elif self.state == 'swapping':
             self.refreshBoard()
             self.pick1, self.pick2 = None, None
@@ -513,7 +521,7 @@ class GameBoard:
 
                 self.state = 'dropping'
             elif removed == 0: # No more matches
-                if self.enemyTurn == 0:
+                if self.enemyTurn == 0 and self.enemy.isAtk == False:
                     self.enemy.isAtk = True
                     self.enemy.enemyAtk()
                 self.refreshBoard()
@@ -525,7 +533,7 @@ class GameBoard:
                     self.refreshBoard()
                     self.state = 'dropping'
                 else:
-                    self.state = 'removeMatches'
+                    self.state = 'start'
 
 def runGame(self):
     # Visuals
