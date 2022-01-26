@@ -322,16 +322,17 @@ class GameBoard:
 
         if not self.rowMade:
             generator = self.newRow()
-            # for row in self.boardRects:
-            #     for block in row:
-            #         if block is not None:
-            #             block[1] = 1
-        else:
-            generator = self.tempRow
             for row in self.boardRects:
                 for block in row:
                     if block is not None:
-                        block[1] -= 1
+                        block.move_ip(0,5)
+        else:
+            generator = self.tempRow
+            if self.canAdd:
+                for row in self.boardRects:
+                    for block in row:
+                        if block is not None:
+                            block.move_ip(0,-1)
 
         # Check if  there's a block on the top of the board
 
