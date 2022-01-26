@@ -52,6 +52,7 @@ COLUMNS = 6
 assert (BOARDWIDTH * BOARDHEIGHT) % 2 == 0, 'Need even board!'
 # Have an image for the board. lol
 board = pygame.image.load(os.path.join('sprites', 'spr_window.png')).convert()
+boardMask = pygame.image.load(os.path.join('sprites', 'spr_boardMask.png')).convert_alpha() # Great Value™ masking
 boardPos = (boardXmin,boardYmin)
 
 def Text(font, size, text, color, x, y):
@@ -112,9 +113,7 @@ class Cursor(object):
                         board.player.spclMeter = 0
                 elif event.key == pygame.K_w:
                     #Testing.....
-                    print(board.board)
-                    print('lol')
-                    print(board.boardTable)
+                    print('shrug')
         # Limit cursor to only be within board
         if self.x <= boardXmin:
             self.x = boardXmin
@@ -127,7 +126,6 @@ class Cursor(object):
 # Game control
 class GameBoard:
     def __init__(self, blockFall, player, enemy, playerHP, enemyHP, blockColors, enemyTurns, minAtk, maxAtk):
-        self.screen = pygame.display.get_surface()
         self.rows = ROWS
         self.columns = COLUMNS
         #Game board with objects
@@ -165,6 +163,8 @@ class GameBoard:
         self.setBoard()
         self.animProgress = 0
         self.state = 'start'
+        self.rowMade = False
+        self.tempRow = []
     def setBoard(self):
         # Set up reference board rects
         x,y = boardXmin,(boardYmin-5)
@@ -265,24 +265,25 @@ class GameBoard:
 
         if all(index == -1 for index in itertools.chain(*self.boardTable)) == True:
             self.allClear = True
+            Text('slkscr', 20, 'All Clear!', (255,255,255), (int(screen_width)*0.27083), (int(screen_height)*0.40740740740741))
 
-    def generateBlocks(self):
+    def newRow(self):
+        self.rowMade = True
         newBlocks = []
         newRow = 1
-        for r in range(newRow):
-            newBlocks.append([])
+
+        newBlocks.append([])
         for row in newBlocks:
             for c in range(self.columns):
                 row.append(None)
 
         x,y = boardXmin,(boardYmin-5)
-        #self.canAdd = True
 
         #Make new row of blocks to generate at the bottom of board
         for r in range(newRow):
             for c in range(self.columns):
                 image = random.randint(0, self.blockColors)
-                x,y = self.boardRects[r][c].left, self.boardRects[r][c].bottom - boardYmin
+                x,y = self.boardRects[r][c].left, self.boardRects[r][c].bottom + 450
                 block = Block(image, (x,y))
                 newBlocks[r][c] = block
 
@@ -313,9 +314,34 @@ class GameBoard:
 
                 newBlocks[row][column].index = random.choice(blockTypes) # Pick a new block
 
+        self.tempRow = newBlocks
+        return newBlocks
+
+    def generateBlocks(self):
+        generator = []
+
+        if not self.rowMade:
+            generator = self.newRow()
+            # for row in self.boardRects:
+            #     for block in row:
+            #         if block is not None:
+            #             block[1] = 1
+        else:
+            generator = self.tempRow
+            for row in self.boardRects:
+                for block in row:
+                    if block is not None:
+                        block[1] -= 1
+
         # Check if  there's a block on the top of the board
+
         rowCheck = self.boardTable[0]
         if all(x == rowCheck[0] for x in rowCheck) == True:
+            for row in generator:
+                for block in row:
+                    if block is not None:
+                        block.draw(True)
+                        block.rect.topleft = (block.rect.topleft[0], block.rect.topleft[1]-1)
             self.canAdd = True # If all the numbers in rowCheck are the same, then a new row can be added
         elif all(x == rowCheck[0] for x in rowCheck) == False:
             self.canAdd = False # If all the numbers in rowCheck aren't the same, then a new row can't be added
@@ -324,18 +350,19 @@ class GameBoard:
         if self.state == 'removeMatches' or self.state == 'dropping':
             self.canAdd = False
         if self.canAdd == True:
-            for block in newBlocks:
-                self.board.pop(0) # Get rid of the topmost row
-                self.board.append(block) # Add the new blocks
+            now = pygame.time.get_ticks()
+            if now - self.countTime >= self.waitTime:
+                self.countTime = now
+                self.waitTime = self.waitTimeStatic
+                for block in generator:
+                    self.rowMade = False
+                    self.board.pop(0) # Get rid of the topmost row
+                    self.board.append(block) # Add the new blocks
                 self.refreshBoard()
 
     def runGenerate(self):
         # For when the board has to wait to generate a new row of blocks
-        now = pygame.time.get_ticks()
-        if now - self.countTime >= self.waitTime:
-            self.countTime = now
-            self.waitTime = self.waitTimeStatic
-            self.generateBlocks()
+        self.generateBlocks()
 
     def draw(self):
         for row in self.board:
@@ -478,16 +505,52 @@ class GameBoard:
                         dropBlocks.append((r,c))
         return dropBlocks
 
+    def removingBlocks(self):
+        self.refreshBoard()
+        removed = self.removeMatches() # Matches found and removed
+
+        if removed != 0:
+            dropBlocks = self.getDropBlocks()
+            # Change the player's animation to their attacking one
+            if self.enemy.health >= 0.9 or self.player.health >= 0.9:
+                # Don't change the animation if the enemy/player is dead
+                self.player.currentAnim = self.player.animStates['atk']
+            # Damage the enemy
+            for index in range(len(removed)):
+                totalDamage = 0.0
+                if removed[index] > 0:
+                    if index == 0:
+                        totalDamage += removed[index] * threeMatch
+                    elif index == 1:
+                        totalDamage += removed[index] * fourMatch
+                    elif index == 2:
+                        totalDamage += removed[index] * fiveMatch
+                    self.enemy.enemyDamageCalc(totalDamage)
+                    # if self.enemyTurn <= self.maxEnemyTurn:
+                    #     if self.enemyTurn >= 0.9  and self.enemy.health >= 0.9:
+                    #         self.enemyTurn -= 1
+
+            self.state = 'dropping'
+        elif removed == 0: # No more matches
+            if self.enemyTurn == 0 and self.enemy.isAtk == False:
+                self.enemy.isAtk = True
+                self.enemy.enemyAtk()
+            self.refreshBoard()
+            self.state = 'start'
+
+    def allClearMode(self):
+        seconds = (pygame.time.get_ticks()-self.countTime)/1000
+        if seconds >= 13:
+            self.enemy.enemyDamageCalc(1500)
+            self.waitTime = 0
 
     def boardControl(self):
         self.runGenerate()
         if self.allClear == True:
-            seconds = (pygame.time.get_ticks()-self.countTime)/1000
-            Text('slkscr', 20, 'All Clear!', (255,255,255), (260), (220)) # Temporary hardcoded x,y values
-            if seconds >= 12:
-                self.enemy.enemyDamageCalc(1500)
-                self.allClear = False
+            self.allClearMode()
         if self.state == 'start':
+            #Make sure there aren't any leftover matches
+            self.removingBlocks()
             # If blocks were swapped, change state to swapping
             if self.pick1 is not None and self.pick2 is not None:
                 self.state = 'swapping'
@@ -504,37 +567,7 @@ class GameBoard:
             self.pick1, self.pick2 = None, None
             self.state = 'removeMatches'
         elif self.state == 'removeMatches':
-            self.refreshBoard()
-            removed = self.removeMatches() # Matches found and removed
-
-            if removed != 0:
-                dropBlocks = self.getDropBlocks()
-                # Change the player's animation to their attacking one
-                if self.enemy.health >= 0.9 or self.player.health >= 0.9:
-                    # Don't change the animation if the enemy/player is dead
-                    self.player.currentAnim = self.player.animStates['atk']
-                # Damage the enemy
-                for index in range(len(removed)):
-                    totalDamage = 0.0
-                    if removed[index] > 0:
-                        if index == 0:
-                            totalDamage += removed[index] * threeMatch
-                        elif index == 1:
-                            totalDamage += removed[index] * fourMatch
-                        elif index == 2:
-                            totalDamage += removed[index] * fiveMatch
-                        self.enemy.enemyDamageCalc(totalDamage)
-                        # if self.enemyTurn <= self.maxEnemyTurn:
-                        #     if self.enemyTurn >= 0.9  and self.enemy.health >= 0.9:
-                        #         self.enemyTurn -= 1
-
-                self.state = 'dropping'
-            elif removed == 0: # No more matches
-                if self.enemyTurn == 0 and self.enemy.isAtk == False:
-                    self.enemy.isAtk = True
-                    self.enemy.enemyAtk()
-                self.refreshBoard()
-                self.state = 'start'
+            self.removingBlocks()
         elif self.state == 'dropping':
             if self.animatePullDown(self.dropBlocks) == 1:
                 self.dropBlocks = self.getDropBlocks()
@@ -564,13 +597,17 @@ class Block:
         self.frame = 0
         self.rect = pygame.Rect(0,0,blockSize,blockSize)
         self.rect.topleft = pos
-
+        self.mask = pygame.mask.from_surface(self.image[self.frame])
         self.direction = []
 
-    def draw(self):
+    def draw(self, mask = False):
         self.image = Spritesheet.getFrames(self, 2, self.index, blockSize, blockSize) # Reload the sprite so that the board is accurate
         if self.index > EMPTY:
-            screen.blit(self.image[self.frame], self.rect)
+            if mask:
+                screen.blit(self.image[self.frame], self.rect)
+                screen.blit(boardMask, (0,0)) # Here lies wasted time trying to avoid this method
+            else:
+                screen.blit(self.image[self.frame], self.rect)
 
 class Spritesheet:
     def __init__(self, filename):
