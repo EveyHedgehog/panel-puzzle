@@ -317,22 +317,33 @@ class GameBoard:
         self.tempRow = newBlocks
         return newBlocks
 
+    def moveBoard(self):
+        i = 1
+        stop = False
+        while i < 3:
+            for row in self.boardRects:
+                for block in row:
+                    if block is not None:
+                        if not stop:
+                            block.y -= 0.1
+            i += 1
+        if i == 3:
+            stop = True
+        if stop:
+            for row in self.boardRects:
+                for block in row:
+                    if block is not None:
+                        block.y += 1
+
     def generateBlocks(self):
         generator = []
 
         if not self.rowMade:
             generator = self.newRow()
-            for row in self.boardRects:
-                for block in row:
-                    if block is not None:
-                        block.move_ip(0,5)
+
         else:
             generator = self.tempRow
-            if self.canAdd:
-                for row in self.boardRects:
-                    for block in row:
-                        if block is not None:
-                            block.move_ip(0,-1)
+
 
         # Check if  there's a block on the top of the board
 
@@ -356,14 +367,10 @@ class GameBoard:
                 self.countTime = now
                 self.waitTime = self.waitTimeStatic
                 for block in generator:
-                    self.rowMade = False
                     self.board.pop(0) # Get rid of the topmost row
                     self.board.append(block) # Add the new blocks
+                self.rowMade = False
                 self.refreshBoard()
-
-    def runGenerate(self):
-        # For when the board has to wait to generate a new row of blocks
-        self.generateBlocks()
 
     def draw(self):
         for row in self.board:
@@ -546,7 +553,9 @@ class GameBoard:
             self.waitTime = 0
 
     def boardControl(self):
-        self.runGenerate()
+        self.generateBlocks()
+        if self.canAdd:
+            self.moveBoard()
         if self.allClear == True:
             self.allClearMode()
         if self.state == 'start':
@@ -598,7 +607,8 @@ class Block:
         self.frame = 0
         self.rect = pygame.Rect(0,0,blockSize,blockSize)
         self.rect.topleft = pos
-        self.mask = pygame.mask.from_surface(self.image[self.frame])
+        self.x = self.rect[0]
+        self.y = self.rect[1]
         self.direction = []
 
     def draw(self, mask = False):
