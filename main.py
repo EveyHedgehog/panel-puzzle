@@ -174,7 +174,7 @@ class GameBoard:
                 row.append(rect)
                 x += blockSize
             x = boardXmin
-            y += boardYmin + 5
+            y += boardYmin + 5.5
 
         # Add blocks to each empty space in the array
         for r in range(self.rows):
@@ -190,7 +190,6 @@ class GameBoard:
                     x,y = self.boardRects[r][c].left, self.boardRects[r][c].bottom - boardYmin
                     block = Block(image, (x,y))
                     self.board[r][c] = block
-
 
         # Don't start with matches!
         # Horizontal check
@@ -252,7 +251,6 @@ class GameBoard:
             for column in range(self.columns):
                 if self.board[row][column] is not None:
                     self.board[row][column].rect.bottomleft = self.boardRects[row][column].bottomleft
-                    self.board[row][column].rect.move_ip(0,5) # Without this the board moves up 5 pixels
         # Make a table of the board's block's indexes
         newBoard = []
         for row in range(self.rows):
@@ -283,7 +281,7 @@ class GameBoard:
         for r in range(newRow):
             for c in range(self.columns):
                 image = random.randint(0, self.blockColors)
-                x,y = self.boardRects[r][c].left, self.boardRects[r][c].bottom + 450
+                x,y = boardXmin + blockSize*c, boardYmax + blockSize
                 block = Block(image, (x,y))
                 newBlocks[r][c] = block
 
@@ -318,23 +316,14 @@ class GameBoard:
         return newBlocks
 
     def moveBoard(self):
-        i = 1
-        stop = False
-        while i < 3:
-            for row in self.boardRects:
-                for block in row:
-                    if block is not None:
-                        if not stop:
-                            block.y -= 0.1
-            i += 1
-        if i == 3:
-            stop = True
-        if stop:
-            for row in self.boardRects:
-                for block in row:
-                    if block is not None:
-                        block.y += 1
-
+        if not self.rowMade:
+            for row in range(self.rows):
+                for column in range(self.columns):
+                    self.boardRects[row][column].y = boardYmin + blockSize * row
+        else:
+            for row in range(self.rows):
+                for column in range(self.columns):
+                    self.boardRects[row][column].y -= 0.1
     def generateBlocks(self):
         generator = []
 
@@ -353,7 +342,8 @@ class GameBoard:
                 for block in row:
                     if block is not None:
                         block.draw(True)
-                        block.rect.topleft = (block.rect.topleft[0], block.rect.topleft[1]-1)
+                        if self.canAdd == True:
+                            block.rect.topleft = (block.rect.topleft[0], block.rect.topleft[1]-1)
             self.canAdd = True # If all the numbers in rowCheck are the same, then a new row can be added
         elif all(x == rowCheck[0] for x in rowCheck) == False:
             self.canAdd = False # If all the numbers in rowCheck aren't the same, then a new row can't be added
@@ -802,8 +792,12 @@ gameBoard = GameBoard(1500, 'charA', 'enemA', 100, 400, 2, 5, 30, 85)
 # player Turns until enemy attacks, minumum damage from enemy, maximum damage from enemy)
 CURSOR = Cursor()
 
-# More pygame specific stuff....
-while True:
+def main():
     runGame(gameBoard)
     #Handling input
     CURSOR.update(gameBoard)
+
+# More pygame specific stuff....
+while True:
+    if __name__ == '__main__':
+        main()
