@@ -26,7 +26,7 @@ cursor = pygame.image.load(os.path.join('sprites', 'spr_cursor.png')).convert_al
 
 # Game variables
 gridSize = 40
-animSpd = 20
+animSpd = 60.0
 
 # Block n' Board control
 EMPTY = -1
@@ -38,8 +38,8 @@ threeMatch = 40
 fourMatch = 70
 fiveMatch = 150
 # Remember to double these sizes when you get to Renpy thanks
-BOARDWIDTH = 240
-BOARDHEIGHT = 480
+BOARDWIDTH = 240.0
+BOARDHEIGHT = 480.0
 boardXmin = int(screen_width*0.202083)
 boardXmax = screen_width*0.36927083
 boardYmin = int(screen_height*0.064814814814815)
@@ -157,9 +157,9 @@ class GameBoard:
 
 
         # Rects to represent where a block would be
-        self.boardRects = []
-        for r in range(self.rows):
-            self.boardRects.append([])
+        # self.boardRects = []
+        # for r in range(self.rows):
+        #     self.boardRects.append([])
         self.setBoard()
         self.animProgress = 0
         self.state = 'start'
@@ -167,29 +167,31 @@ class GameBoard:
         self.tempRow = []
     def setBoard(self):
         # Set up reference board rects
-        x,y = boardXmin,(boardYmin-5)
-        for row in self.boardRects:
-            for c in range(self.columns):
-                rect = pygame.Rect(x,y,blockSize,blockSize)
-                row.append(rect)
-                x += blockSize
-            x = boardXmin
-            y += boardYmin + 5.5
+        #x,y = boardXmin,(boardYmin-5)
+        # for row in self.boardRects:
+        #     for c in range(self.columns):
+        #         rect = pygame.Rect(x,y,blockSize,blockSize)
+        #         row.append(rect)
+        #         x += blockSize
+        #     x = boardXmin
+        #     y += boardYmin + 5.5
 
         # Add blocks to each empty space in the array
         for r in range(self.rows):
             if r == ROWS-1:
                 for c in range(self.columns):
                     image = random.randint(0, self.blockColors)
-                    x,y = self.boardRects[r][c].left, self.boardRects[r][c].bottom - boardYmin
+                    x,y = boardXmin + (blockSize*c), boardYmax
                     block = Block(image, (x,y))
                     self.board[r][c] = block
+                    block.update()
             elif r <= ROWS-1:
                 for c in range(self.columns):
                     image = EMPTY
-                    x,y = self.boardRects[r][c].left, self.boardRects[r][c].bottom - boardYmin
+                    x,y = boardXmin + (blockSize*c), boardYmax
                     block = Block(image, (x,y))
                     self.board[r][c] = block
+                    block.update()
 
         # Don't start with matches!
         # Horizontal check
@@ -250,7 +252,8 @@ class GameBoard:
         for row in range(self.rows):
             for column in range(self.columns):
                 if self.board[row][column] is not None:
-                    self.board[row][column].rect.bottomleft = self.boardRects[row][column].bottomleft
+                    #self.board[row][column].x,self.board[row][column].y = self.boardRects[row][column].x,self.boardRects[row][column].y
+                    self.board[row][column].update()
         # Make a table of the board's block's indexes
         newBoard = []
         for row in range(self.rows):
@@ -275,13 +278,13 @@ class GameBoard:
             for c in range(self.columns):
                 row.append(None)
 
-        x,y = boardXmin,(boardYmin-5)
+        #x,y = boardXmin,boardYmin
 
         #Make new row of blocks to generate at the bottom of board
         for r in range(newRow):
             for c in range(self.columns):
                 image = random.randint(0, self.blockColors)
-                x,y = boardXmin + blockSize*c, boardYmax + blockSize
+                x,y = boardXmin + (blockSize *c) , boardYmax + blockSize
                 block = Block(image, (x,y))
                 newBlocks[r][c] = block
 
@@ -316,15 +319,21 @@ class GameBoard:
         return newBlocks
 
     def moveBoard(self):
+        dt = clock.tick(60)/1000
+        time = 0
         if not self.rowMade:
             for row in range(self.rows):
                 for column in range(self.columns):
-                    self.boardRects[row][column].y = boardYmin + blockSize * row
+                    self.board[row][column].y = boardYmin + blockSize * row
         else:
             for row in range(self.rows):
                 for column in range(self.columns):
-                    self.boardRects[row][column].y -= 0.1
+                    time = pygame.time.get_ticks() - time
+                    if self.board[row][column].y >= blockSize * row:
+                        self.board[row][column].y -= 0.1
+
     def generateBlocks(self):
+        dt = clock.tick(60)/1000
         generator = []
 
         if not self.rowMade:
@@ -343,7 +352,8 @@ class GameBoard:
                     if block is not None:
                         block.draw(True)
                         if self.canAdd == True:
-                            block.rect.topleft = (block.rect.topleft[0], block.rect.topleft[1]-1)
+                            block.y -= 0.1
+
             self.canAdd = True # If all the numbers in rowCheck are the same, then a new row can be added
         elif all(x == rowCheck[0] for x in rowCheck) == False:
             self.canAdd = False # If all the numbers in rowCheck aren't the same, then a new row can't be added
@@ -470,12 +480,13 @@ class GameBoard:
             row, column = dropBlock
             for r in range(row, -1, -1):
                 if self.board[r][column].index != EMPTY:
-                    if self.board[r][column].rect.bottom != self.board[row][column].rect.bottom:
+                    if self.board[r][column].x != self.board[row][column].x:
                         anim.append(self.board[r][column])
 
         if self.animProgress < blockSize:
             for cell in anim:
-                cell.rect.move_ip(0, +animSpd)
+                #cell.rect.move_ip(0, +animSpd)
+                cell.y += animSpd
             self.animProgress += animSpd
         else:
             self.refreshBoard() # Won't animate right without this
@@ -596,19 +607,23 @@ class Block:
         self.image = Spritesheet.getFrames(self, 2, self.index, blockSize, blockSize)
         self.frame = 0
         self.rect = pygame.Rect(0,0,blockSize,blockSize)
-        self.rect.topleft = pos
-        self.x = self.rect[0]
-        self.y = self.rect[1]
+        #self.rect.topleft = pos
+        self.x = 0.0
+        self.y = 0.0
+        self.x,self.y = pos
         self.direction = []
 
     def draw(self, mask = False):
         self.image = Spritesheet.getFrames(self, 2, self.index, blockSize, blockSize) # Reload the sprite so that the board is accurate
         if self.index > EMPTY:
             if mask:
-                screen.blit(self.image[self.frame], self.rect)
+                screen.blit(self.image[self.frame], (self.x,self.y))
                 screen.blit(boardMask, (0,0)) # Here lies wasted time trying to avoid this method
             else:
-                screen.blit(self.image[self.frame], self.rect)
+                screen.blit(self.image[self.frame], (self.x,self.y))
+
+    def update(self):
+        self.rect.topleft = self.x,self.y
 
 class Spritesheet:
     def __init__(self, filename):
@@ -787,17 +802,16 @@ class Character(object):
         Text('slkscr', 10, str(self.health) + '/' + str(self.maxHealth), (0,0,0), (x + 120), (y - 15))
         self.drawBars(screen)
 
-gameBoard = GameBoard(1500, 'charA', 'enemA', 100, 400, 2, 5, 30, 85)
+gameBoard = GameBoard(15000, 'charA', 'enemA', 100, 400, 2, 5, 30, 85)
 # GameBoard(block generation speed, player character, enemy, player HP, enemy HP, amount of colors to generate,
 # player Turns until enemy attacks, minumum damage from enemy, maximum damage from enemy)
 CURSOR = Cursor()
 
 def main():
-    runGame(gameBoard)
-    #Handling input
-    CURSOR.update(gameBoard)
+    while True:
+        runGame(gameBoard)
+        #Handling input
+        CURSOR.update(gameBoard)
 
-# More pygame specific stuff....
-while True:
-    if __name__ == '__main__':
-        main()
+if __name__ == '__main__':
+    main()
