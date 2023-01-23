@@ -305,10 +305,9 @@ class GameBoard:
                 for column in range(self.columns):
                     self.board[row][column].y += ((boardYmin + blockSize * (row - 1)) - (boardYmin + blockSize * row))/((self.waitTimeStatic/1000)%60) * dt
 
-    def generateBlocks(self, dt):
+    def generateBlocks(self, dt, cursor):
         now = pygame.time.get_ticks()
         generator = []
-        counter = 0
 
         if not self.rowMade:
             generator = self.newRow()
@@ -329,10 +328,14 @@ class GameBoard:
                 if self.canAdd == True:
                     for column in range(self.columns):
                         generator[row][column].y += ((boardYmin + blockSize * (row - 1)) - (boardYmin + blockSize * row))/((self.waitTimeStatic/1000)%60) * dt
+                        cursor.y += ((boardYmin + blockSize * (row - 1)) - (boardYmin + blockSize * row))/((self.waitTimeStatic/1000)%60)/6 * dt
 
             self.canAdd = True # If all the numbers in rowCheck are the same, then a new row can be added
         elif all(x == rowCheck[0] for x in rowCheck) == False:
             self.canAdd = False # If all the numbers in rowCheck aren't the same, then a new row can't be added
+
+        cursor.draw(screen)
+
         if self.player.health == 0 or self.enemy.health == 0:
             self.canAdd = False
         if self.state == 'removeMatches' or self.state == 'dropping':
@@ -529,8 +532,8 @@ class GameBoard:
             self.enemy.enemyDamageCalc(1500)
             self.waitTime = 0
 
-    def boardControl(self, dt):
-        self.generateBlocks(dt)
+    def boardControl(self, dt, cursor):
+        self.generateBlocks(dt, cursor)
         if self.canAdd:
             self.moveBoard(dt)
         if self.allClear == True:
@@ -567,14 +570,13 @@ class GameBoard:
                 else:
                     self.state = 'start'
 
-def runGame(self, dt):
+def runGame(self, dt, cursor):
     # Visuals
     screen.blit(gameBG, gameBG.get_rect())
     screen.blit(board, boardPos)
     self.draw()
-    CURSOR.draw(screen)
     # Board control, board control
-    self.boardControl(dt)
+    self.boardControl(dt, cursor)
     # Updating the window
     pygame.display.flip()
     clock.tick(60) # Limit FPS
@@ -792,7 +794,7 @@ def main():
 
         dt = time.perf_counter() - prevTime
         prevTime = time.perf_counter()
-        runGame(gameBoard, dt)
+        runGame(gameBoard, dt, CURSOR)
         #Handling input
         CURSOR.update(gameBoard, dt)
 
