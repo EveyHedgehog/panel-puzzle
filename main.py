@@ -60,8 +60,8 @@ def Text(font, size, text, color, x, y):
 
 class Cursor(object):
     def __init__(self):
-        self.x = boardXmin
-        self.y = boardYmin
+        self.x = boardXmin + (boardXmin/2)
+        self.y = boardYmin + (boardYmax/2)
         self.image = cursor
         self.canControl = True
         # Hitbox 1
@@ -78,15 +78,15 @@ class Cursor(object):
             self.y -= (gridSize * 10) * dt
         if keys[downArrow]:
             self.y += (gridSize * 10) * dt
+        if keys[leftArrow]:
+            self.x -= (gridSize * 15) * dt
+        if keys[rightArrow]:
+            self.x += (gridSize * 15) * dt
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
             elif event.type == pygame.KEYDOWN:
-                if event.key == leftArrow:
-                    self.x -= (gridSize * 70) * dt
-                elif event.key == rightArrow:
-                    self.x += (gridSize * 70) * dt
                 if event.key == button0:
                     if board.state == 'start' or board.state == 'dropping':
                         if self.canControl is True:
@@ -781,7 +781,7 @@ class Character(object):
         Text('slkscr', 10, str(self.health) + '/' + str(self.maxHealth), (0,0,0), (x + 120), (y - 15))
         self.drawBars(screen)
 
-gameBoard = GameBoard(2000, 'charA', 'enemA', 100, 400, 2, 5, 30, 85)
+gameBoard = GameBoard(3500, 'charA', 'enemA', 100, 400, 2, 5, 30, 85)
 # GameBoard(block generation speed, player character, enemy, player HP, enemy HP, amount of colors to generate,
 # player Turns until enemy attacks, minumum damage from enemy, maximum damage from enemy)
 CURSOR = Cursor()
