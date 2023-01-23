@@ -26,7 +26,7 @@ cursor = pygame.image.load(os.path.join('sprites', 'spr_cursor.png')).convert_al
 
 # Game variables
 gridSize = 40
-animSpd = 60.0
+animSpd = 300
 
 # Block n' Board control
 EMPTY = -1
@@ -64,37 +64,31 @@ class Cursor(object):
     def __init__(self):
         self.x = boardXmin
         self.y = boardYmin
-        #self.keyDirection = pygame.math.Vector2(0,0)
         self.image = cursor
         self.canControl = True
-        # Rect for blit position
-        self.rect = self.image.get_rect()
         # Hitbox 1
-        self.hitA = (self.x, self.y, blockSize, blockSize)
+        self.hitA = (self.x + (blockSize/2), self.y + (blockSize/2))
         # Hitbox 2
-        self.hitB = (self.x + blockSize, self.y, blockSize, blockSize)
+        self.hitB = ((self.x + blockSize) + (blockSize/2), self.y + (blockSize/2))
     def draw(self, surface):
         surface.blit(cursor, (self.x, self.y))
-        self.hitA = (self.x, self.y, blockSize, blockSize)
-        self.hitB = (self.x + blockSize, self.y, blockSize, blockSize)
-    def update(self,board):
-        dt = clock.tick(20)
+    def update(self, board, dt):
         if board.player.health <= 0 or board.enemy.health <= 0:
             self.canControl = False
         keys = pygame.key.get_pressed()
         if keys[upArrow]:
-            self.y -= gridSize
+            self.y -= (gridSize * 20) * dt
         if keys[downArrow]:
-            self.y += gridSize
-        if keys[leftArrow]:
-            self.x -= gridSize
-        if keys[rightArrow]:
-            self.x += gridSize
+            self.y += (gridSize * 20) * dt
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
             elif event.type == pygame.KEYDOWN:
+                if event.key == leftArrow:
+                    self.x -= (gridSize * 70) * dt
+                elif event.key == rightArrow:
+                    self.x += (gridSize * 70) * dt
                 if event.key == button0:
                     if board.state == 'start' or board.state == 'dropping':
                         if self.canControl is True:
@@ -123,6 +117,8 @@ class Cursor(object):
             self.y = boardYmin
         elif self.y >= boardYmax:
             self.y = boardYmax
+        self.hitA = (self.x + (blockSize/2), self.y + (blockSize/2))
+        self.hitB = ((self.x + blockSize) + (blockSize/2), self.y + (blockSize/2))
 # Game control
 class GameBoard:
     def __init__(self, blockFall, player, enemy, playerHP, enemyHP, blockColors, enemyTurns, minAtk, maxAtk):
@@ -155,27 +151,12 @@ class GameBoard:
         self.maxEnemyTurn = enemyTurns # Now with new turn-based flavor!
         self.enemyTurn = self.maxEnemyTurn
 
-
-        # Rects to represent where a block would be
-        # self.boardRects = []
-        # for r in range(self.rows):
-        #     self.boardRects.append([])
         self.setBoard()
         self.animProgress = 0
         self.state = 'start'
         self.rowMade = False
         self.tempRow = []
     def setBoard(self):
-        # Set up reference board rects
-        #x,y = boardXmin,(boardYmin-5)
-        # for row in self.boardRects:
-        #     for c in range(self.columns):
-        #         rect = pygame.Rect(x,y,blockSize,blockSize)
-        #         row.append(rect)
-        #         x += blockSize
-        #     x = boardXmin
-        #     y += boardYmin + 5.5
-
         # Add blocks to each empty space in the array
         for r in range(self.rows):
             if r == ROWS-1:
@@ -184,14 +165,12 @@ class GameBoard:
                     x,y = boardXmin + (blockSize*c), boardYmax
                     block = Block(image, (x,y))
                     self.board[r][c] = block
-                    block.update()
             elif r <= ROWS-1:
                 for c in range(self.columns):
                     image = EMPTY
-                    x,y = boardXmin + (blockSize*c), boardYmax
+                    x,y = boardXmin + (blockSize*c), boardYmin + (blockSize*r)
                     block = Block(image, (x,y))
                     self.board[r][c] = block
-                    block.update()
 
         # Don't start with matches!
         # Horizontal check
@@ -246,13 +225,13 @@ class GameBoard:
 
                 self.board[row][column].index = random.choice(blockTypes)
 
+
     def refreshBoard(self):
         self.state = 'removeMatches' # For when a new row of blocks is being generated
         # Reset the board based on the board copy
         for row in range(self.rows):
             for column in range(self.columns):
                 if self.board[row][column] is not None:
-                    #self.board[row][column].x,self.board[row][column].y = self.boardRects[row][column].x,self.boardRects[row][column].y
                     self.board[row][column].update()
         # Make a table of the board's block's indexes
         newBoard = []
@@ -318,9 +297,7 @@ class GameBoard:
         self.tempRow = newBlocks
         return newBlocks
 
-    def moveBoard(self):
-        dt = clock.tick(60)/1000
-        time = 0
+    def moveBoard(self, dt):
         if not self.rowMade:
             for row in range(self.rows):
                 for column in range(self.columns):
@@ -328,12 +305,9 @@ class GameBoard:
         else:
             for row in range(self.rows):
                 for column in range(self.columns):
-                    time = pygame.time.get_ticks() - time
-                    if self.board[row][column].y >= blockSize * row:
-                        self.board[row][column].y -= 0.1
+                    self.board[row][column].y -= 2.5 * dt
 
-    def generateBlocks(self):
-        dt = clock.tick(60)/1000
+    def generateBlocks(self, dt):
         generator = []
 
         if not self.rowMade:
@@ -352,7 +326,7 @@ class GameBoard:
                     if block is not None:
                         block.draw(True)
                         if self.canAdd == True:
-                            block.y -= 0.1
+                            block.y -= ((self.waitTimeStatic/1000)%60) * dt
 
             self.canAdd = True # If all the numbers in rowCheck are the same, then a new row can be added
         elif all(x == rowCheck[0] for x in rowCheck) == False:
@@ -473,7 +447,7 @@ class GameBoard:
         self.board[row][column].frame = 0
         self.board[row][column].index = EMPTY
 
-    def animatePullDown(self, dropBlocks):
+    def animatePullDown(self, dropBlocks, dt):
         # Bring a floating block one cell down until it's not under an empty space
         anim = []
         for dropBlock in dropBlocks:
@@ -486,8 +460,8 @@ class GameBoard:
         if self.animProgress < blockSize:
             for cell in anim:
                 #cell.rect.move_ip(0, +animSpd)
-                cell.y += animSpd
-            self.animProgress += animSpd
+                cell.y += animSpd * dt
+            self.animProgress += animSpd * dt
         else:
             self.refreshBoard() # Won't animate right without this
 
@@ -553,10 +527,10 @@ class GameBoard:
             self.enemy.enemyDamageCalc(1500)
             self.waitTime = 0
 
-    def boardControl(self):
-        self.generateBlocks()
+    def boardControl(self, dt):
+        self.generateBlocks(dt)
         if self.canAdd:
-            self.moveBoard()
+            self.moveBoard(dt)
         if self.allClear == True:
             self.allClearMode()
         if self.state == 'start':
@@ -566,7 +540,7 @@ class GameBoard:
             if self.pick1 is not None and self.pick2 is not None:
                 self.state = 'swapping'
             # Make sure there are no floating blocks after swapping back to start from dropping
-            if self.animatePullDown(self.dropBlocks) == 1:
+            if self.animatePullDown(self.dropBlocks, dt) == 1:
                 self.dropBlocks = self.getDropBlocks()
                 if self.dropBlocks != []:
                     self.refreshBoard()
@@ -580,7 +554,7 @@ class GameBoard:
         elif self.state == 'removeMatches':
             self.removingBlocks()
         elif self.state == 'dropping':
-            if self.animatePullDown(self.dropBlocks) == 1:
+            if self.animatePullDown(self.dropBlocks, dt) == 1:
                 self.dropBlocks = self.getDropBlocks()
                 if self.dropBlocks != []:
                     self.refreshBoard()
@@ -588,14 +562,14 @@ class GameBoard:
                 else:
                     self.state = 'start'
 
-def runGame(self):
+def runGame(self, dt):
     # Visuals
     screen.blit(gameBG, gameBG.get_rect())
     screen.blit(board, boardPos)
     self.draw()
     CURSOR.draw(screen)
     # Board control, board control
-    self.boardControl()
+    self.boardControl(dt)
     # Updating the window
     pygame.display.flip()
     clock.tick(60) # Limit FPS
@@ -623,7 +597,7 @@ class Block:
                 screen.blit(self.image[self.frame], (self.x,self.y))
 
     def update(self):
-        self.rect.topleft = self.x,self.y
+        self.rect.topleft = round(self.x),round(self.y)
 
 class Spritesheet:
     def __init__(self, filename):
@@ -808,10 +782,14 @@ gameBoard = GameBoard(15000, 'charA', 'enemA', 100, 400, 2, 5, 30, 85)
 CURSOR = Cursor()
 
 def main():
+    prevTime = time.perf_counter()
     while True:
-        runGame(gameBoard)
+
+        dt = time.perf_counter() - prevTime
+        prevTime = time.perf_counter()
+        runGame(gameBoard, dt)
         #Handling input
-        CURSOR.update(gameBoard)
+        CURSOR.update(gameBoard, dt)
 
 if __name__ == '__main__':
     main()
