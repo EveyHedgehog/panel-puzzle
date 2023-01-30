@@ -90,9 +90,7 @@ class Cursor(object):
                 if event.key == button0:
                     if board.state == 'start' or board.state == 'dropping':
                         if self.canControl is True:
-                            board.pick1 = board.checkButtonPress(self.hitA[0:2])
-                            board.pick2 = board.checkButtonPress(self.hitB[0:2])
-                            board.swapBlocks(board.pick1, board.pick2)
+                            board.checkButtonPress(self.hitA[0:2], self.hitB[0:2])
                 elif event.key == button1:
                     board.waitTime = 0
                     if board.enemyTurn <= board.maxEnemyTurn:
@@ -105,7 +103,7 @@ class Cursor(object):
                         board.player.spclMeter = 0
                 elif event.key == pygame.K_w:
                     #Testing.....
-                    print('shrug')
+                    board.player.spclMeter = 10
         # Limit cursor to only be within board
         if self.x <= boardXmin:
             self.x = boardXmin
@@ -261,7 +259,7 @@ class GameBoard:
         for r in range(newRow):
             for c in range(self.columns):
                 image = random.randint(0, self.blockColors)
-                x,y = boardXmin + (blockSize *c) , boardYmax + blockSize
+                x,y = boardXmin + (blockSize *c) , (boardYmax + blockSize) - 0.8
                 block = Block(image, (x,y))
                 newBlocks[r][c] = block
 
@@ -299,7 +297,7 @@ class GameBoard:
         if not self.rowMade:
             for row in range(self.rows):
                 for column in range(self.columns):
-                    self.board[row][column].y = (boardYmin + blockSize * row) + 0.5
+                    self.board[row][column].y = (boardYmin + blockSize * row)
         else:
             for row in range(self.rows):
                 for column in range(self.columns):
@@ -311,7 +309,6 @@ class GameBoard:
 
         if not self.rowMade:
             generator = self.newRow()
-
         else:
             generator = self.tempRow
 
@@ -324,15 +321,17 @@ class GameBoard:
                 for block in row:
                     if block is not None:
                         block.draw(True)
-            for row in range(1):
-                if self.canAdd == True:
-                    for column in range(self.columns):
-                        generator[row][column].y += ((boardYmin + blockSize * (row - 1)) - (boardYmin + blockSize * row))/((self.waitTimeStatic/1000)%60) * dt
-                        cursor.y += ((boardYmin + blockSize * (row - 1)) - (boardYmin + blockSize * row))/((self.waitTimeStatic/1000)%60)/6 * dt
 
             self.canAdd = True # If all the numbers in rowCheck are the same, then a new row can be added
         elif all(x == rowCheck[0] for x in rowCheck) == False:
             self.canAdd = False # If all the numbers in rowCheck aren't the same, then a new row can't be added
+
+        if self.rowMade and self.state != 'dropping':
+            for row in range(1):
+                for column in range(self.columns):
+                    generator[row][column].y += ((boardYmin + blockSize * (row - 1)) - (boardYmin + blockSize * row))/((self.waitTimeStatic/1000)%60) * dt
+            if self.canAdd:
+                cursor.y += ((boardYmin + blockSize * (row - 1)) - (boardYmin + blockSize * row))/((self.waitTimeStatic/1000)%60)/6 * dt
 
         cursor.draw(screen)
 
@@ -350,6 +349,8 @@ class GameBoard:
                     self.board.append(block) # Add the new blocks
                 self.rowMade = False
                 self.refreshBoard()
+        else:
+            self.countTime = pygame.time.get_ticks() # This helps avoid awkward pop ins from the new blocks if their animation was interrupted
 
     def draw(self):
         for row in self.board:
@@ -359,16 +360,25 @@ class GameBoard:
         self.player.blitme(int(screen_width*0.46875), int(screen_height*0.222))
         self.enemy.blitme(int(screen_width*0.677083), int(screen_height*0.222))
 
-    def checkButtonPress(self,hitbox):
+    def checkButtonPress(self,hitboxA,hitboxB):
         # For cursor control
-        for row in self.board:
-            for block in row:
-                if block is not None and block.rect.collidepoint(hitbox):
-                    r = self.board.index(row)
-                    b = row.index(block)
-                    return (r,b)
+        pickEmpty = 0 # For checking when both blocks hit were empty, so they don't get swapped
+        for row in range(self.rows):
+            for column in range(self.columns):
+                if self.board[row][column].rect.collidepoint(hitboxA):
+                    self.pick1 = (row, column)
+                if self.board[row][column].rect.collidepoint(hitboxB):
+                    self.pick2 = (row, column)
 
-        return (0,0) # Temporary fix lol
+        if self.board[self.pick1[0]][self.pick1[1]].index == EMPTY:
+            pickEmpty += 1
+        if self.board[self.pick2[0]][self.pick2[1]].index == EMPTY:
+            pickEmpty += 1
+
+        if self.pick1 is not None and self.pick2 is not None:
+            if pickEmpty < 2:
+                self.swapBlocks(self.pick1, self.pick2)
+
     def swapBlocks(self, pos1, pos2):
         row1, column1 = pos1
         row2, column2 = pos2
@@ -377,7 +387,7 @@ class GameBoard:
             pass
         else:
             self.board[row1][column1].index, self.board[row2][column2].index = self.board[row2][column2].index, self.board[row1][column1].index
-            if self.boardTable[self.pick1[0]][self.pick1[1]] != -1 and self.boardTable[self.pick2[0]][self.pick2[1]] != -1 or self.boardTable[self.pick1[0]][self.pick1[1]] != -1 and self.boardTable[self.pick2[0]][self.pick2[1]] == -1 or self.boardTable[self.pick1[0]][self.pick1[1]] == -1 and self.boardTable[self.pick2[0]][self.pick2[1]] != -1:
+            if self.boardTable[self.pick1[0]][self.pick1[1]] != EMPTY and self.boardTable[self.pick2[0]][self.pick2[1]] != EMPTY or self.boardTable[self.pick1[0]][self.pick1[1]] != EMPTY and self.boardTable[self.pick2[0]][self.pick2[1]] == EMPTY or self.boardTable[self.pick1[0]][self.pick1[1]] == EMPTY and self.boardTable[self.pick2[0]][self.pick2[1]] != EMPTY:
                 if self.enemyTurn <= self.maxEnemyTurn: # Only tick down the enemy turn if the blocks swapped weren't both empty spaces
                     if self.enemyTurn >= 0.9 and self.enemy.health >= 0.9:
                         self.enemyTurn -= 1
@@ -419,7 +429,6 @@ class GameBoard:
 
         matchedBlocks = []
         for block in matches:
-            #print(self.boardTable[block[0]][block[1]])
             matchedBlocks.append(self.boardTable[block[0]][block[1]])
         # To fix the issue with two seperate x chain blocks being counted as a higher chain, does not fix the same color from being counted as one chain though
         repeatBlocks = {i:matchedBlocks.count(i) for i in matchedBlocks}
@@ -442,8 +451,8 @@ class GameBoard:
 
         if len(matches) > 0:
             return threes, fours, fives # There were matches
-
-        return 0 # No matches
+        else:
+            return 0 # No matches
 
     def animateBlock(self, row, column):
         # Change the matched block to its popped frame
@@ -534,7 +543,7 @@ class GameBoard:
 
     def boardControl(self, dt, cursor):
         self.generateBlocks(dt, cursor)
-        if self.canAdd:
+        if self.canAdd == True:
             self.moveBoard(dt)
         if self.allClear == True:
             self.allClearMode()
@@ -542,29 +551,26 @@ class GameBoard:
             #Make sure there aren't any leftover matches
             self.removingBlocks()
             # If blocks were swapped, change state to swapping
-            if self.pick1 is not None and self.pick2 is not None:
-                self.state = 'swapping'
+            # if self.pick1 is not None and self.pick2 is not None:
+                #self.state = 'swapping'
             # Make sure there are no floating blocks after swapping back to start from dropping
             if self.animatePullDown(self.dropBlocks, dt) == 1:
                 self.dropBlocks = self.getDropBlocks()
                 if self.dropBlocks != []:
-                    self.canAdd = False
                     self.refreshBoard()
                     self.state = 'dropping'
                 else:
                     self.state = 'start'
-        elif self.state == 'swapping':
-            self.refreshBoard()
-            self.pick1, self.pick2 = None, None
-            self.state = 'removeMatches'
+        # elif self.state == 'swapping':
+        #     self.refreshBoard()
+        #     self.pick1, self.pick2 = None, None
+        #     self.state = 'removeMatches'
         elif self.state == 'removeMatches':
-            self.canAdd = False
             self.removingBlocks()
         elif self.state == 'dropping':
             if self.animatePullDown(self.dropBlocks, dt) == 1:
                 self.dropBlocks = self.getDropBlocks()
                 if self.dropBlocks != []:
-                    self.canAdd = False
                     self.refreshBoard()
                     self.state = 'dropping'
                 else:
@@ -577,6 +583,7 @@ def runGame(self, dt, cursor):
     self.draw()
     # Board control, board control
     self.boardControl(dt, cursor)
+    #Text('slkscr', 50, str(self.waitTime), (0,0,0), 0, 0) # quick debug
     # Updating the window
     pygame.display.flip()
     clock.tick(60) # Limit FPS
