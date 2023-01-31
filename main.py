@@ -15,6 +15,7 @@ pygame.display.set_caption('Puzzle')
 button0 = pygame.K_a
 button1 = pygame.K_s
 button2 = pygame.K_d
+button3 = pygame.K_SPACE
 upArrow = pygame.K_UP
 downArrow = pygame.K_DOWN
 leftArrow = pygame.K_LEFT
@@ -41,9 +42,9 @@ fiveMatch = 150
 BOARDWIDTH = 240
 BOARDHEIGHT = 480
 boardXmin = int(screen_width*0.202083)
-boardXmax = screen_width*0.36927083
+boardXmax = int(screen_width*0.36927083)
 boardYmin = int(screen_height*0.064814814814815)
-boardYmax = screen_height*0.88055555555556
+boardYmax = int(screen_height*0.88055555555556)
 
 ROWS = 12
 COLUMNS = 6
@@ -53,10 +54,23 @@ board = pygame.image.load(os.path.join('sprites', 'spr_window.png')).convert()
 boardMask = pygame.image.load(os.path.join('sprites', 'spr_boardMask.png')).convert_alpha() # Great Value™ masking
 boardPos = (boardXmin,boardYmin)
 
-def Text(font, size, text, color, x, y):
+def Text(font, size, text, color, x, y, surface = screen):
     fonts = pygame.font.Font(os.path.join('fonts', 'fnt_' + font + '.ttf'), size)
-    string = fonts.render(text, True, color)
-    screen.blit(string,(x,y))
+    words = [word.split(' ') for word in text.splitlines()]
+    space = fonts.size(' ')[0]
+    maxWidth, maxHeight = surface.get_size()
+    tempX, tempY = x, y
+    for line in words:
+        for word in line:
+            wordSurface = fonts.render(word, True, color)
+            wordWidth, wordHeight = wordSurface.get_size()
+            if tempX + wordWidth >= maxWidth:
+                tempX = x
+                tempY += wordHeight
+            surface.blit(wordSurface, (tempX, tempY))
+            tempX += wordWidth + space
+        tempX = x
+        tempY += wordHeight
 
 class Cursor(object):
     def __init__(self):
@@ -64,24 +78,28 @@ class Cursor(object):
         self.y = boardYmin + (boardYmax/2)
         self.image = cursor
         self.canControl = True
+        self.canMove = True
         # Hitbox 1
         self.hitA = (self.x + (blockSize/2), self.y + (blockSize/2))
         # Hitbox 2
         self.hitB = ((self.x + blockSize) + (blockSize/2), self.y + (blockSize/2))
+    def reset(self):
+        self.__init__()
     def draw(self, surface):
         surface.blit(cursor, (self.x, self.y))
     def update(self, board, dt):
         if board.player.health <= 0 or board.enemy.health <= 0:
             self.canControl = False
         keys = pygame.key.get_pressed()
-        if keys[upArrow]:
-            self.y -= (gridSize * 10) * dt
-        if keys[downArrow]:
-            self.y += (gridSize * 10) * dt
-        if keys[leftArrow]:
-            self.x -= (gridSize * 15) * dt
-        if keys[rightArrow]:
-            self.x += (gridSize * 15) * dt
+        if self.canMove:
+            if keys[upArrow]:
+                self.y -= (gridSize * 10) * dt
+            if keys[downArrow]:
+                self.y += (gridSize * 10) * dt
+            if keys[leftArrow]:
+                self.x -= (gridSize * 15) * dt
+            if keys[rightArrow]:
+                self.x += (gridSize * 15) * dt
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -101,9 +119,22 @@ class Cursor(object):
                         board.player.currentAnim = board.player.animStates['spcl']
                         board.enemy.enemyDamageCalc(400)
                         board.player.spclMeter = 0
+                elif event.key == button3:
+                    if not board.gameDone:
+                        board.paused = not board.paused
+                    else:
+                        if board.player.health <= 0:
+                            board.reset()
+                            self.reset()
+                        if board.enemy.health <= 0:
+                            # To be replaced with something else, just a placeholder for now. Feel free
+                            # to get rid of the if statements here if you just want to
+                            # restart when either the player or enemy is dead
+                            board.reset()
+                            self.reset()
                 elif event.key == pygame.K_w:
                     #Testing.....
-                    board.player.spclMeter = 10
+                    board.player.health = 0
         # Limit cursor to only be within board
         if self.x <= boardXmin:
             self.x = boardXmin
@@ -152,6 +183,12 @@ class GameBoard:
         self.state = 'start'
         self.rowMade = False
         self.tempRow = []
+        self.paused = False
+        self.gameDone = False
+
+    def reset(self):
+        self.__init__(gameInfo[0],gameInfo[1],gameInfo[2],gameInfo[3],gameInfo[4],gameInfo[5],gameInfo[6],gameInfo[7],gameInfo[8])
+
     def setBoard(self):
         # Add blocks to each empty space in the array
         for r in range(self.rows):
@@ -293,7 +330,7 @@ class GameBoard:
         self.tempRow = newBlocks
         return newBlocks
 
-    def moveBoard(self, dt):
+    def moveBoard(self, dt, cursor):
         if not self.rowMade:
             for row in range(self.rows):
                 for column in range(self.columns):
@@ -301,10 +338,17 @@ class GameBoard:
         else:
             for row in range(self.rows):
                 for column in range(self.columns):
-                    self.board[row][column].y += ((boardYmin + blockSize * (row - 1)) - (boardYmin + blockSize * row))/((self.waitTimeStatic/1000)%60) * dt
+                    self.board[row][column].y += ((boardYmax + blockSize * (row - 1)) - (boardYmax + blockSize * row))/((self.waitTimeStatic/1000)%60) * dt
+
+        if self.rowMade and self.state != 'dropping':
+            for row in range(1):
+                for column in range(self.columns):
+                    generator[row][column].y += ((boardYmax + blockSize * (row - 1)) - (boardYmax + blockSize * row))/((self.waitTimeStatic/1000)%60) * dt
+            cursor.y += ((boardYmin + blockSize * (row - 1)) - (boardYmin + blockSize * row))/((self.waitTimeStatic/1000)%60)/6 * dt
 
     def generateBlocks(self, dt, cursor):
         now = pygame.time.get_ticks()
+        global generator
         generator = []
 
         if not self.rowMade:
@@ -314,43 +358,28 @@ class GameBoard:
 
 
         # Check if  there's a block on the top of the board
-
         rowCheck = self.boardTable[0]
         if all(x == rowCheck[0] for x in rowCheck) == True:
+            self.canAdd = True # If all the numbers in rowCheck are the same, then a new row can be added
+        elif all(x == rowCheck[0] for x in rowCheck) == False:
+            self.canAdd = False # If all the numbers in rowCheck aren't the same, then a new row can't be added
+
+        if self.canAdd:
             for row in generator:
                 for block in row:
                     if block is not None:
                         block.draw(True)
 
-            self.canAdd = True # If all the numbers in rowCheck are the same, then a new row can be added
-        elif all(x == rowCheck[0] for x in rowCheck) == False:
-            self.canAdd = False # If all the numbers in rowCheck aren't the same, then a new row can't be added
-
-        if self.rowMade and self.state != 'dropping':
-            for row in range(1):
-                for column in range(self.columns):
-                    generator[row][column].y += ((boardYmin + blockSize * (row - 1)) - (boardYmin + blockSize * row))/((self.waitTimeStatic/1000)%60) * dt
-            if self.canAdd:
-                cursor.y += ((boardYmin + blockSize * (row - 1)) - (boardYmin + blockSize * row))/((self.waitTimeStatic/1000)%60)/6 * dt
-
         cursor.draw(screen)
 
-        if self.player.health == 0 or self.enemy.health == 0:
-            self.canAdd = False
-        if self.state == 'removeMatches' or self.state == 'dropping':
-            self.canAdd = False
-
         if self.canAdd == True:
-            if now - self.countTime >= self.waitTime:
-                self.countTime = now
-                self.waitTime = self.waitTimeStatic
+            if int(generator[0][0].y) <= boardYmax:
                 for block in generator:
                     self.board.pop(0) # Get rid of the topmost row
                     self.board.append(block) # Add the new blocks
+                self.removingBlocks()
                 self.rowMade = False
                 self.refreshBoard()
-        else:
-            self.countTime = pygame.time.get_ticks() # This helps avoid awkward pop ins from the new blocks if their animation was interrupted
 
     def draw(self):
         for row in self.board:
@@ -387,32 +416,30 @@ class GameBoard:
             pass
         else:
             self.board[row1][column1].index, self.board[row2][column2].index = self.board[row2][column2].index, self.board[row1][column1].index
+            self.removingBlocks()
             if self.boardTable[self.pick1[0]][self.pick1[1]] != EMPTY and self.boardTable[self.pick2[0]][self.pick2[1]] != EMPTY or self.boardTable[self.pick1[0]][self.pick1[1]] != EMPTY and self.boardTable[self.pick2[0]][self.pick2[1]] == EMPTY or self.boardTable[self.pick1[0]][self.pick1[1]] == EMPTY and self.boardTable[self.pick2[0]][self.pick2[1]] != EMPTY:
                 if self.enemyTurn <= self.maxEnemyTurn: # Only tick down the enemy turn if the blocks swapped weren't both empty spaces
                     if self.enemyTurn >= 0.9 and self.enemy.health >= 0.9:
                         self.enemyTurn -= 1
         # Check if a block and empty spot were swapped, if they were then start the drop
-        if self.board[row1][column1].index == EMPTY or self.board[row2][column2].index == EMPTY:
-            self.getDropBlocks()
-            self.state = 'dropping'
-
+        # if self.board[row1][column1].index == EMPTY or self.board[row2][column2].index == EMPTY:
+        #     self.getDropBlocks()
+        #     self.state = 'dropping'
 
     def checkForMatches(self):
         # Thanks to NovaSquirrel for the code
-        height = len(self.boardTable)
-        width = len(self.boardTable[0])
         match = set()
 
-        for row in range(height):
-            for column in range(width):
+        for row in range(self.rows):
+            for column in range(self.columns):
                 color = self.boardTable[row][column]
                 if color != -1:
-                    if column != 0 and column != width-1:
+                    if column != 0 and column != self.columns-1:
                         if self.boardTable[row][column-1] == color and self.boardTable[row][column+1] == color:
                             match.add((row, column-1))
                             match.add((row, column))
                             match.add((row, column+1))
-                    if row != 0 and row != height-1:
+                    if row != 0 and row != self.rows-1:
                         if self.boardTable[row-1][column] == color and self.boardTable[row+1][column] == color:
                             match.add((row-1, column))
                             match.add((row, column))
@@ -422,12 +449,12 @@ class GameBoard:
 
     def removeMatches(self):
         matches = self.checkForMatches()
+        matchedBlocks = []
 
         threes = 0
         fours = 0
         fives = 0
 
-        matchedBlocks = []
         for block in matches:
             matchedBlocks.append(self.boardTable[block[0]][block[1]])
         # To fix the issue with two seperate x chain blocks being counted as a higher chain, does not fix the same color from being counted as one chain though
@@ -464,6 +491,7 @@ class GameBoard:
     def animatePullDown(self, dropBlocks, dt):
         # Bring a floating block one cell down until it's not under an empty space
         anim = []
+
         for dropBlock in dropBlocks:
             row, column = dropBlock
             for r in range(row, -1, -1):
@@ -492,6 +520,7 @@ class GameBoard:
             self.animProgress = 0 # Reset animation progress meter
 
             return 1
+
     def getDropBlocks(self):
         dropBlocks = []
 
@@ -507,6 +536,7 @@ class GameBoard:
         removed = self.removeMatches() # Matches found and removed
 
         if removed != 0:
+            self.state = 'removeMatches'
             dropBlocks = self.getDropBlocks()
             # Change the player's animation to their attacking one
             if self.enemy.health >= 0.9 or self.player.health >= 0.9:
@@ -541,40 +571,62 @@ class GameBoard:
             self.enemy.enemyDamageCalc(1500)
             self.waitTime = 0
 
+    def pauseGame(self, cursor):
+        dimGame = pygame.Rect(0,0, screen_width, screen_height)
+        pauseBG = pygame.Surface((screen_width,screen_height))
+        pauseBG.set_alpha(185)
+        pauseBG.fill((0,0,35))
+        screen.blit(pauseBG, (0,0), special_flags = pygame.BLEND_ALPHA_SDL2)
+        pygame.draw.rect(pauseBG, (0,0,0), dimGame)
+        Text('slkscr', 20, 'Paused!', (255,255,255), screen_width/2.2, screen_height//2)
+        cursor.canControl = False
+        cursor.canMove = False
+        self.canAdd = False
+
+    def gameOver(self):
+        self.gameDone = True
+        if self.player.health <= 0:
+            Text('slkscr', 20, f'Game Over...\nPress Spacebar to restart!', (0,0,0), screen_width/2.2, screen_height//2)
+        elif self.enemy.health <= 0:
+            Text('slkscr', 20, 'You Win!', (0,0,0), screen_width/2.2, screen_height//2)
+
     def boardControl(self, dt, cursor):
         self.generateBlocks(dt, cursor)
-        if self.canAdd == True:
-            self.moveBoard(dt)
+        pullBlocks = self.animatePullDown(self.dropBlocks, dt)
+
+        if self.paused:
+            self.pauseGame(cursor)
+        else:
+            cursor.canControl = True
+            cursor.canMove = True
+
+        if self.player.health <= 0 or self.enemy.health <= 0:
+            self.canAdd = False
+            self.gameOver()
+        if self.state == 'removeMatches' or self.state == 'dropping':
+            self.canAdd = False
+
+        if self.canAdd == True and not self.allClear:
+            self.moveBoard(dt, cursor)
         if self.allClear == True:
             self.allClearMode()
-        if self.state == 'start':
-            #Make sure there aren't any leftover matches
-            self.removingBlocks()
-            # If blocks were swapped, change state to swapping
-            # if self.pick1 is not None and self.pick2 is not None:
-                #self.state = 'swapping'
-            # Make sure there are no floating blocks after swapping back to start from dropping
-            if self.animatePullDown(self.dropBlocks, dt) == 1:
-                self.dropBlocks = self.getDropBlocks()
-                if self.dropBlocks != []:
-                    self.refreshBoard()
-                    self.state = 'dropping'
-                else:
-                    self.state = 'start'
-        # elif self.state == 'swapping':
-        #     self.refreshBoard()
-        #     self.pick1, self.pick2 = None, None
-        #     self.state = 'removeMatches'
-        elif self.state == 'removeMatches':
-            self.removingBlocks()
-        elif self.state == 'dropping':
-            if self.animatePullDown(self.dropBlocks, dt) == 1:
-                self.dropBlocks = self.getDropBlocks()
-                if self.dropBlocks != []:
-                    self.refreshBoard()
-                    self.state = 'dropping'
-                else:
-                    self.state = 'start'
+
+        if pullBlocks == 1:
+            self.dropBlocks = self.getDropBlocks()
+            if self.dropBlocks != []:
+                self.refreshBoard()
+                self.state = 'dropping'
+            else:
+                self.removingBlocks()
+                self.state = 'start'
+
+        # if self.state == 'start':
+        #     pass
+        # elif self.state == 'removeMatches':
+        #     pass
+        # elif self.state == 'dropping':
+        #     pass
+
 
 def runGame(self, dt, cursor):
     # Visuals
@@ -583,7 +635,7 @@ def runGame(self, dt, cursor):
     self.draw()
     # Board control, board control
     self.boardControl(dt, cursor)
-    #Text('slkscr', 50, str(self.waitTime), (0,0,0), 0, 0) # quick debug
+    #Text('slkscr', 50, str(self.state), (0,0,0), 0, 0) # quick debug
     # Updating the window
     pygame.display.flip()
     clock.tick(60) # Limit FPS
@@ -639,17 +691,18 @@ class Spritesheet:
 
     def animate(self, state):
         # This is just for hardcoded animation looping and non-looping
-        now = pygame.time.get_ticks() / 24
-        if self.loop is True:
-            if now - self.lastUpdate > 10:
-                self.lastUpdate = now
-                self.currentFrame = (self.currentFrame + 1) % len(state) # Goes through each frame and loops
+        if not gameBoard.paused:
+            now = pygame.time.get_ticks() / 24
+            if self.loop is True:
+                if now - self.lastUpdate > 10:
+                    self.lastUpdate = now
+                    self.currentFrame = (self.currentFrame + 1) % len(state) # Goes through each frame and loops
+                    self.image = state[self.currentFrame]
+                elif self.currentFrame == len(state) - 1 and state == self.animStates['lose']:
+                    self.loop = False # Stop looping once on last frame
+            else:
+                self.currentFrame = len(state)-1
                 self.image = state[self.currentFrame]
-            elif self.currentFrame == len(state) - 1 and state == self.animStates['lose']:
-                self.loop = False # Stop looping once on last frame
-        else:
-            self.currentFrame = len(state)-1
-            self.image = state[self.currentFrame]
 
 def drawHealthBar(surf, pos, size, borderC, backC, healthC, progress):
     # Credits to Rabbit76 on stackoverflow
@@ -790,7 +843,8 @@ class Character(object):
         Text('slkscr', 10, str(self.health) + '/' + str(self.maxHealth), (0,0,0), (x + 120), (y - 15))
         self.drawBars(screen)
 
-gameBoard = GameBoard(3500, 'charA', 'enemA', 100, 400, 2, 5, 30, 85)
+gameInfo = (3500, 'charA', 'enemA', 100, 400, 2, 5, 30, 85)
+gameBoard = GameBoard(gameInfo[0],gameInfo[1],gameInfo[2],gameInfo[3],gameInfo[4],gameInfo[5],gameInfo[6],gameInfo[7],gameInfo[8])
 # GameBoard(block generation speed, player character, enemy, player HP, enemy HP, amount of colors to generate,
 # player Turns until enemy attacks, minumum damage from enemy, maximum damage from enemy)
 CURSOR = Cursor()
